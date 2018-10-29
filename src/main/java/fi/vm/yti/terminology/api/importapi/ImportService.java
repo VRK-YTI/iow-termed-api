@@ -1,5 +1,6 @@
 package fi.vm.yti.terminology.api.importapi;
 
+import fi.vm.yti.mq.service.YtiMQService;
 import fi.vm.yti.security.AuthenticatedUserProvider;
 import fi.vm.yti.terminology.api.TermedRequester;
 import fi.vm.yti.terminology.api.frontend.FrontendGroupManagementService;
@@ -8,6 +9,7 @@ import fi.vm.yti.terminology.api.model.ntrf.VOCABULARY;
 import fi.vm.yti.terminology.api.model.termed.Graph;
 import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import fi.vm.yti.terminology.api.security.AuthorizationManager;
+import fi.vm.yti.terminology.api.util.JsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,16 +17,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jms.annotation.EnableJms;
-import org.springframework.jms.core.BrowserCallback;
 import org.springframework.jms.core.JmsMessagingTemplate;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.jms.JMSException;
-import javax.jms.QueueBrowser;
-import javax.jms.Session;
+import javax.annotation.PreDestroy;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
@@ -34,7 +32,9 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @EnableJms
@@ -45,20 +45,18 @@ public class ImportService {
     private final FrontendTermedService termedService;
     private final AuthenticatedUserProvider userProvider;
     private final AuthorizationManager authorizationManager;
-    private final String namespaceRoot;
+    private final YtiMQService ytiMQService;
 
+    // JMS-client
+    private JmsMessagingTemplate jmsMessagingTemplate;
     /**
      * Map containing metadata types. used  when creating nodes.
      */
     private HashMap<String,MetaNode> typeMap = new HashMap<>();
 
-    private Map<UUID,String> importStatus = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(ImportService.class);
+    private final String subSystem;
 
-
-    // JMS-client
-    @Autowired
-    private JmsMessagingTemplate jmsMessagingTemplate;
 
     @Autowired
     public ImportService(TermedRequester termedRequester,
@@ -66,68 +64,76 @@ public class ImportService {
                          FrontendTermedService frontendTermedService,
                          AuthenticatedUserProvider userProvider,
                          AuthorizationManager authorizationManager,
-                         @Value("${namespace.root}") String namespaceRoot) {
+                         YtiMQService ytiMQService,
+                         JmsMessagingTemplate jmsMessagingTemplate,
+                         @Value("${mq.active.subsystem}") String subSystem) {
         this.termedRequester = termedRequester;
         this.groupManagementService = groupManagementService;
         this.termedService = frontendTermedService;
         this.userProvider = userProvider;
         this.authorizationManager = authorizationManager;
-        this.namespaceRoot = namespaceRoot;
+        this.subSystem = subSystem;
+        this.ytiMQService = ytiMQService;
+        this.jmsMessagingTemplate = jmsMessagingTemplate;
     }
 
-    ResponseEntity getStatus(UUID jobtoken){
-        // Status not_found/running/errors
-        System.out.println("ReadyState="+getJobState(jobtoken, "VocabularyReady"));
+    ResponseEntity getStatus(UUID jobtoken, boolean full){
         // Status not_found/running/errors
         // Query status information from ActiveMQ
-        Boolean stat = getJobState(jobtoken, "VocabularyStatus");
-        System.out.println("Check Status:"+stat.booleanValue());
-        stat = getJobState(jobtoken, "VocabularyReady");
-        System.out.println("Check ready:"+stat.booleanValue());
+        HttpStatus status;
+        StringBuffer statusString= new StringBuffer();
+        System.out.println(" Status full="+full);
+        ImportStatusResponse response = new ImportStatusResponse();
 
-        if (getJobState(jobtoken, "VocabularyIncoming").booleanValue()){
-            return new ResponseEntity<>("{ \"status\":\"Import operation already started\"}", HttpStatus.NOT_ACCEPTABLE);
-        }else if (getJobState(jobtoken, "VocabularyStatus").booleanValue()){
-            System.out.println("Status found:");
-            return new ResponseEntity<>("{ \"status\":\"Processing\"}", HttpStatus.OK);
-        }else if (getJobState(jobtoken, "VocabularyProcessing").booleanValue()){
-            return new ResponseEntity<>("{ \"status\":\"Processing\"}", HttpStatus.OK);
-        } else if(getJobState(jobtoken, "VocabularyReady").booleanValue()){
-            System.out.println("Ready found:");
-            return new ResponseEntity<>("{ \"status\":\"Ready\"}", HttpStatus.OK);
+        if(full){
+            status = ytiMQService.getStatus(jobtoken, statusString);
+            System.out.println("Status="+status + " StatusString="+statusString);
+            response.setPayload(statusString.toString());
+        } else
+            status = ytiMQService.getStatus(jobtoken);
+        if(status == HttpStatus.NOT_ACCEPTABLE){
+                response.setStatus("Import operation already started");
+        } else if (status ==  HttpStatus.PROCESSING){
+                response.setStatus("Processing");
+                if(full)
+                    response.setPayload(statusString.toString());
+                System.out.println(" Processing StatusString="+statusString);
+        } else if(status == HttpStatus.OK){
+                response.setStatus("Ready");
+                if(full)
+                    response.setPayload(statusString.toString());
+        } else {
+                response.setStatus("Not found");
         }
-        return new ResponseEntity<>("{ \"status\":\"Not found\"}", HttpStatus.OK);
+        System.out.println("Response status json");
+        // Construct return message
+        JsonUtils.prettyPrintJson(response);
+
+        return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
     }
 
-    private Boolean getJobState(UUID jobtoken,String queueName) {
-        return jmsMessagingTemplate.getJmsTemplate().browseSelected(queueName, "jobtoken='"+jobtoken.toString()+"'",new BrowserCallback<Boolean>() {
-            @Override
-            public Boolean doInJms(Session session, QueueBrowser browser) throws JMSException {
-                Enumeration messages = browser.getEnumeration();
-                return  new Boolean(messages.hasMoreElements());
-            }
-        });
-    }
 
-    private boolean checkIfImportIsRunnig(String uri) {
-        Boolean rv = false;
-        if (checkUriStatus(uri, "VocabularyStatus").booleanValue()) {
-            System.out.println("Status found:");
-            rv = true;
-        } else if (checkUriStatus(uri, "VocabularyProcessing").booleanValue()) {
-            rv = true;
+    int phase=0;
+    ResponseEntity setStatus(UUID jobtoken){
+        System.out.println("SetStatus for "+jobtoken);
+        ImportStatusResponse response = new ImportStatusResponse();
+        ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, jobtoken.toString(),userProvider.getUser().getId().toString(),"http://yti.dev.fi/test", "phase"+(phase++));
+        // Query status information from ActiveMQ
+        HttpStatus status = ytiMQService.getStatus(jobtoken);
+        // Construct return message
+        if (status == HttpStatus.NOT_ACCEPTABLE){
+            response.setStatus("Import operation already started");
+            return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.NOT_ACCEPTABLE);
+        } else if (status == HttpStatus.PROCESSING){
+            response.setStatus("Processing");
+            response.setProgress(10*phase+"/100");
+            return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
+        } else if(status == HttpStatus.OK){
+            response.setStatus("Ready");
+            return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
         }
-        return rv;
-    }
-
-    private Boolean checkUriStatus(String uri, String queueName) {
-        return jmsMessagingTemplate.getJmsTemplate().browseSelected(queueName, "uri='"+uri+"'",new BrowserCallback<Boolean>() {
-            @Override
-            public Boolean doInJms(Session session, QueueBrowser browser) throws JMSException {
-                Enumeration messages = browser.getEnumeration();
-                return  new Boolean(messages.hasMoreElements());
-            }
-        });
+        response.setStatus("Not found");
+        return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
     }
 
     ResponseEntity handleNtrfDocumentAsync(String format, UUID vocabularyId, MultipartFile file) {
@@ -147,7 +153,7 @@ public class ImportService {
         try {
             vocabulary = termedService.getGraph(vocabularyId);
             // Import running for given vocabulary, drop it
-            if(checkIfImportIsRunnig(vocabulary.getUri())){
+            if(ytiMQService.checkIfImportIsRunning(vocabulary.getUri())){
                 logger.error("Import running for Vocabulary:<" + vocabularyId + ">");
                 return new ResponseEntity<>("Import running for Vocabulary:<" + vocabularyId+">", HttpStatus.CONFLICT);
             }
@@ -163,8 +169,9 @@ public class ImportService {
             return new ResponseEntity<>( rv, HttpStatus.BAD_REQUEST);
         }
         rv = "{\"jobtoken\":\"" + operationId + "\"}";
-        // Handle incoming cml
+        // Handle incoming xml
         try {
+            ytiMQService.setStatus(YtiMQService.STATUS_PREPROCESSING, operationId.toString(), userProvider.getUser().getId().toString(), vocabulary.getUri(),"Validating");
             JAXBContext jc = JAXBContext.newInstance(VOCABULARY.class);
             // Disable DOCTYPE-directive from incoming file.
             XMLInputFactory xif = XMLInputFactory.newFactory();
@@ -180,23 +187,19 @@ public class ImportService {
             // All set up, execute actual import
             List<?> l = voc.getRECORDAndHEADAndDIAG();
             System.out.println("Incoming objects count=" + l.size());
-            importStatus.put(operationId, "Running 0/"+l.size());
-
+            ImportStatusResponse response = new ImportStatusResponse();
+            response.setStatus("Processing "+l.size()+" items validated");
+            ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, operationId.toString(), userProvider.getUser().getId().toString(), vocabulary.getUri(),response.toString());
             StringWriter sw = new StringWriter();
             marshaller.marshal(voc, sw);
-            // Use Vocabulary Uri as uri
-            Message mess = MessageBuilder
-                    .withPayload(sw.toString())
-                    // Authenticated user
-                    .setHeader("userId", userProvider.getUser().getId().toString())
-                    // Token which is used when querying status
-                    .setHeader("jobtoken", operationId.toString())
-                    .setHeader("format", "ntrf")
-                    // Target vocabulary
-                    .setHeader("vocabularyId", vocabularyId.toString())
-                    .setHeader("uri", vocabulary.getUri())
-                    .build();
-            jmsMessagingTemplate.send("VocabularyIncoming", mess);
+            // Add application specific headers
+            MessageHeaderAccessor accessor = new MessageHeaderAccessor();
+            accessor.setHeader("vocabularyId",vocabularyId.toString());
+            accessor.setHeader("format","NTRF");
+            int stat = ytiMQService.handleImportAsync(operationId, accessor, subSystem, vocabulary.getUri(), sw.toString());
+            if(stat != HttpStatus.OK.value()){
+                System.out.println("Import failed code:"+stat);
+            }
         } catch (IOException ioe){
             System.out.println("Incoming transform error=" + ioe);
         } catch (XMLStreamException se) {
@@ -205,5 +208,10 @@ public class ImportService {
             System.out.println("Incoming transform error=" + je);
         }
         return new ResponseEntity<>( rv, HttpStatus.OK);
+    }
+
+    @PreDestroy
+    public void onDestroy() throws Exception {
+        System.out.println("Spring Container is destroyed!");
     }
 }

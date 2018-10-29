@@ -16,7 +16,7 @@ import java.util.concurrent.Executor;
 @EnableScheduling
 @EnableAsync
 @EnableJms
-@ComponentScan({"fi.vm.yti.terminology.api"})
+@ComponentScan({"fi.vm.yti.terminology.api","fi.vm.yti.mq"})
 public class Application {
 
     public static void main(String[] args) {
@@ -37,4 +37,5 @@ public class Application {
         executor.initialize();
         return executor;
     }
+
 }

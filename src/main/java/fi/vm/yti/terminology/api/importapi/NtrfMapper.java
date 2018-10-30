@@ -548,7 +548,8 @@ public class NtrfMapper {
                 lastModifiedBy = upd[0].trim();
                 try {
                     lastModifiedDate = LocalDate.parse(upd[1].trim(), df);
-                    editorialNote = editorialNote+" -"+lastModifiedBy+", "+lastModifiedDate;
+//                    editorialNote = editorialNote+" -"+lastModifiedBy+", "+lastModifiedDate;
+                    editorialNote = editorialNote+" - Viimeksi muokattu, "+lastModifiedDate;
                 } catch(DateTimeParseException dex){
                     statusList.put(currentRecord,new StatusMessage(currentRecord,
                             "Parse error for date"+dex.getMessage()));
@@ -1204,7 +1205,7 @@ public class NtrfMapper {
                             hrefText = hrefText+c;
                         }
                     }
-                    defString = defString.concat(">"+hrefText+ "</a> ");
+                    defString = defString.concat(">"+hrefText.trim()+ "</a>");
                     if(logger.isDebugEnabled())
                         logger.debug("handleDEF RCON:" + defString);
                     // Add also reference
@@ -1241,7 +1242,7 @@ public class NtrfMapper {
                             hrefText = hrefText+c;
                         }
                     }
-                    defString = defString.concat(">"+hrefText+ "</a> ");
+                    defString = defString.concat(">"+hrefText.trim()+ "</a>");
                     // Add also reference
                     handleBCON(bc, parentReferences);
                 }else if(de instanceof NCON){
@@ -1277,26 +1278,16 @@ public class NtrfMapper {
                             hrefText = hrefText+c;
                         }
                     }
-                    defString = defString.concat(">"+hrefText+ "</a> ");
+                    defString = defString.concat(">"+hrefText.trim()+ "</a>");
                 } else if (de instanceof SOURF){
                     handleSOURF((SOURF)de, lang, termProperties, vocabularity);
                     // Add  refs as sources-part.
                     updateSources(((SOURF)de).getContent(), lang, termProperties);
                 }  else if (de instanceof REMK) {
                     handleREMK(lang,(REMK)de,termProperties, vocabularity);
-                }else if(de instanceof JAXBElement){
-                    JAXBElement elem =(JAXBElement)de;
-                    if(elem.getName().toString().equalsIgnoreCase("HOGR")){
-                        Attribute att = new Attribute(lang, elem.getValue().toString());
-                        addProperty("termHomographNumber", termProperties,  att);
-                    } else if(elem.getName().toString().equalsIgnoreCase("fi.vm.yti.terminology.api.model.ntrf.LINK")){
-                        LINK li = (LINK)elem.getValue();
-                        System.out.println("DEF, jaxb-Link found:"+li.getHref());
-                    } else
-                        System.out.println(elem.getValue().getClass().getName()+" -- DEF, unhandled JAXB:"+elem.getName().toString()+"  value:"+elem.getValue().toString());
                 } else if(de instanceof LINK){
                     LINK li = (LINK)de;
-                    defString = defString.concat("<a href='"+li.getHref()+"' data-type='external'>"+li.getContent().get(0)+"</a> ");
+                    defString = defString.concat("<a href='"+li.getHref()+"' data-type='external'>"+li.getContent().get(0).toString().trim()+"</a>");
                 } else {
                     System.out.println("DEF, unhandled CLASS=" + de.getClass().getName());
                     statusList.put(currentRecord,
@@ -1331,6 +1322,7 @@ public class NtrfMapper {
             } else if(de instanceof SOURF){
                 if(((SOURF)de).getContent()!= null && ((SOURF)de).getContent().size() >0) {
                     handleSOURF((SOURF)de, lang, termProperties,vocabularity);
+                    //noteString=noteString.concat(((SOURF)de).getContent().toString());
                     // Add  refs as string and  construct lines four sources-part.
                     updateSources(((SOURF)de).getContent(), lang, termProperties);
                 }
@@ -1338,6 +1330,37 @@ public class NtrfMapper {
                 RCON rc = (RCON)de;
                 if(rc.getContent()!= null && rc.getContent().size() >0) {
                     System.out.println(" ADD NOTE RCON:"+rc.getHref());
+                    String hrefid=null;
+                    noteString = noteString.concat("<a href='"+
+                            vocabularity.getUri());
+                    // Remove # from uri
+                    if(rc.getHref().startsWith("#")) {
+                        hrefid=rc.getHref().substring(1);
+                        noteString = noteString.concat(hrefid + "'");
+                    } else
+                        noteString = noteString.concat(rc.getHref() + "'");
+                    if(rc.getTypr() != null && !rc.getTypr().isEmpty()) {
+                        noteString = noteString.concat(" data-typr ='" +
+                                rc.getTypr()+"'");
+                    }
+
+                    String hrefText ="";
+                    List<Serializable> content = rc.getContent();
+                    for( Serializable c:content){
+                        if(c instanceof  JAXBElement){
+                            JAXBElement el = (JAXBElement)c;
+                            if(el.getName().toString().equalsIgnoreCase("HOGR")){
+                                hrefText = hrefText+"("+el.getValue().toString()+")";
+                            }
+                        } else if(c instanceof String) {
+                            hrefText = hrefText+c;
+                        }
+                    }
+                    noteString = noteString.concat(">"+hrefText.trim()+ "</a>");
+                    if(logger.isDebugEnabled())
+                        logger.debug("handleDEF RCON:" + noteString);
+                    // Add also reference
+                    handleRCONRef(rc, parentReferences);
                 }
             } else if(de instanceof LINK){
                 LINK lc = (LINK)de;
@@ -1345,7 +1368,7 @@ public class NtrfMapper {
                     System.out.println(" ADD NOTE LINK:"+lc.getHref());
                     // Remove  "href:" from string "href:https://www.finlex.fi/fi/laki/ajantasa/1973/19730036"
                     String url=lc.getHref().substring(5);
-                    noteString = noteString.concat("<a href='"+url+"' data-type='external'>"+lc.getContent().get(0)+"</a> ");
+                    noteString = noteString.concat("<a href='"+url+"' data-type='external'>"+lc.getContent().get(0).toString().trim()+"</a> ");
                     System.out.println("Add LINK:"+url);
                 }
             } else if(de instanceof JAXBElement){

@@ -87,7 +87,8 @@ public class ImportJmsListener {
         }
 
         // Set import as handled. IE. consume processed message
-        ytiMQService.setReady(jobtoken);
+//        ytiMQService.setReady(jobtoken);
+        System.out.println("Import handled:" + payload);
 
         MessageHeaderAccessor accessor = new MessageHeaderAccessor();
         accessor.copyHeaders(message.getHeaders());

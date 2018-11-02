@@ -82,26 +82,28 @@ public class ImportService {
         // Query status information from ActiveMQ
         HttpStatus status;
         StringBuffer statusString= new StringBuffer();
-        System.out.println(" Status full="+full);
+        System.out.println(" ImportService.getStatus Status_full="+full);
         ImportStatusResponse response = new ImportStatusResponse();
 
         if(full){
             status = ytiMQService.getStatus(jobtoken, statusString);
             System.out.println("Status="+status + " StatusString="+statusString);
-            response.setPayload(statusString.toString());
+            response = ImportStatusResponse.fromString(statusString.toString());
         } else
             status = ytiMQService.getStatus(jobtoken);
-        if(status == HttpStatus.NOT_ACCEPTABLE){
+        System.out.println("Status class="+status.getClass().getName());
+        // Construct  response
+        if(status == HttpStatus.OK){
+            response.setStatus("Ready");
+            if(full)
+                response = ImportStatusResponse.fromString(statusString.toString());
+        } else if(status == HttpStatus.NOT_ACCEPTABLE){
                 response.setStatus("Import operation already started");
         } else if (status ==  HttpStatus.PROCESSING){
                 response.setStatus("Processing");
                 if(full)
-                    response.setPayload(statusString.toString());
+                    response = ImportStatusResponse.fromString(statusString.toString());
                 System.out.println(" Processing StatusString="+statusString);
-        } else if(status == HttpStatus.OK){
-                response.setStatus("Ready");
-                if(full)
-                    response.setPayload(statusString.toString());
         } else {
                 response.setStatus("Not found");
         }
@@ -134,6 +136,16 @@ public class ImportService {
         }
         response.setStatus("Not found");
         return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
+    }
+
+
+    ResponseEntity checkIfImportIsRunning(String uri){
+        System.out.println("CheckIfRunning");
+        boolean status = ytiMQService.checkIfImportIsRunning(uri);
+        System.out.println("CheckIfRunning - "+status);
+        if(status)
+            return new ResponseEntity<>("{\"status\":\"Running\"}", HttpStatus.OK);
+        return new ResponseEntity<>("{\"status\":\"Stopped\"}", HttpStatus.OK);
     }
 
     ResponseEntity handleNtrfDocumentAsync(String format, UUID vocabularyId, MultipartFile file) {
@@ -189,6 +201,7 @@ public class ImportService {
             System.out.println("Incoming objects count=" + l.size());
             ImportStatusResponse response = new ImportStatusResponse();
             response.setStatus("Processing "+l.size()+" items validated");
+            response.setStatistics("Total:0 warnings:0");
             ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, operationId.toString(), userProvider.getUser().getId().toString(), vocabulary.getUri(),response.toString());
             StringWriter sw = new StringWriter();
             marshaller.marshal(voc, sw);

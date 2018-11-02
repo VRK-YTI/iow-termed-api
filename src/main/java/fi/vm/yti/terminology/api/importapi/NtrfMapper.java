@@ -215,9 +215,11 @@ public class NtrfMapper {
 //        JsonUtils.prettyPrintJson(statusList);
        response.setStatus("Ready");
        response.setProgress("100/100");
-       response.setPayload("Imported"+records.size()+" terms");
+       response.setStatistics("Total="+records.size()+" Warnings="+statusList.size());
+
+       response.setPayload(JsonUtils.prettyPrintJsonAsString(statusList));
        ytiMQService.setStatus(YtiMQService.STATUS_READY, jobtoken, userId.toString(), vocabulary.getUri(),response.toString());
-       return "{\"status\":\"Imported "+records.size()+" terms\",\"Errors\":"+JsonUtils.prettyPrintJsonAsString(statusList)+"\"}";
+       return response.toString();
    }
 
     private void handleLinks(UUID userId, String jobtoken, Graph vocabulary){
@@ -536,8 +538,14 @@ public class NtrfMapper {
         String editorialNote = "";
 
         // Stat can be 'vanhentunut', 'aputermi', 'ulottuvuus'
-        if(r.getStat() != null)
+        if(r.getStat() != null) {
             editorialNote = r.getStat();
+            // Drop ulottuvuus and continue
+            if(r.getStat().equalsIgnoreCase("Ulottuvuus")) {
+                System.out.println("Dropping ulottuvuus type node");
+                return;
+            }
+        }
         if(r.getUpda() != null) {
             // Store that information to the  modificationHistory
             String updater=r.getUpda();
@@ -1171,7 +1179,7 @@ public class NtrfMapper {
         for(Object de:defItems) {
             System.out.println("   handleDEF block:" + de.getClass().getName());
             if(de instanceof  String) {
-                defString =defString.concat((String)de);
+                defString =defString.concat(((String)de).trim());
             }
             else {
                 if(de instanceof  RCON){
@@ -1301,7 +1309,7 @@ public class NtrfMapper {
             logger.debug("Definition="+defString);
         // Add definition if exist.
         if(!defString.isEmpty()) {
-            Attribute att = new Attribute(lang, defString);
+            Attribute att = new Attribute(lang, defString.trim());
             addProperty("definition", parentProperties, att);
             return att;
         } else
@@ -1322,7 +1330,8 @@ public class NtrfMapper {
             } else if(de instanceof SOURF){
                 if(((SOURF)de).getContent()!= null && ((SOURF)de).getContent().size() >0) {
                     handleSOURF((SOURF)de, lang, termProperties,vocabularity);
-                    //noteString=noteString.concat(((SOURF)de).getContent().toString());
+                    // Don't add sourf-string into the note-field, just add them  to the sources-list
+                    // noteString=noteString.concat(((SOURF)de).getContent().toString().trim());
                     // Add  refs as string and  construct lines four sources-part.
                     updateSources(((SOURF)de).getContent(), lang, termProperties);
                 }
@@ -1356,7 +1365,7 @@ public class NtrfMapper {
                             hrefText = hrefText+c;
                         }
                     }
-                    noteString = noteString.concat(">"+hrefText.trim()+ "</a>");
+                    noteString = noteString.concat(">"+hrefText.trim()+ "</a> ");
                     if(logger.isDebugEnabled())
                         logger.debug("handleDEF RCON:" + noteString);
                     // Add also reference

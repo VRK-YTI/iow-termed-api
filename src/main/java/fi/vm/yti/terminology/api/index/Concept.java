@@ -98,7 +98,7 @@ final class Concept {
                 : Collections.emptyList();
 
         List<JsonNode> altLabelXlReferences = references.has("altLabelXl")
-                ? asStream(references.get("prefLabelXl")).collect(toList())
+                ? asStream(references.get("altLabelXl")).collect(toList())
                 : Collections.emptyList();
 
         return createFromTermedNodes(json, prefLabelXlReferences, altLabelXlReferences, vocabulary);

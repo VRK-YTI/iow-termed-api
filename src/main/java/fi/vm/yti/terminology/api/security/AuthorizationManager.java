@@ -5,6 +5,9 @@ import fi.vm.yti.security.YtiUser;
 import fi.vm.yti.terminology.api.model.termed.GenericNode;
 import fi.vm.yti.terminology.api.model.termed.Identifier;
 import fi.vm.yti.terminology.api.model.termed.Node;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +25,8 @@ public class AuthorizationManager {
 
     private final AuthenticatedUserProvider userProvider;
     private final AuthorizationTermedService termedService;
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthorizationManager.class);
 
     @Autowired
     AuthorizationManager(AuthenticatedUserProvider userProvider,

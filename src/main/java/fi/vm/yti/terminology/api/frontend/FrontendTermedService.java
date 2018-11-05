@@ -132,7 +132,7 @@ public class FrontendTermedService {
         List<MetaNode> graphMetaNodes = mapToList(templateMetaNodes, node -> node.copyToGraph(graphId));
 
         updateTypes(graphId, graphMetaNodes);
-        updateAndDeleteInternalNodes(new GenericDeleteAndSave(emptyList(), singletonList(vocabularyNode.copyToGraph(graphId))), sync);
+        updateAndDeleteInternalNodes(new GenericDeleteAndSave(emptyList(), singletonList(vocabularyNode.copyToGraph(graphId))), sync, null);
     }
 
     void deleteVocabulary(UUID graphId) {
@@ -258,7 +258,11 @@ public class FrontendTermedService {
         check(authorizationManager.canModifyNodes(deleteAndSave.getSave()));
         check(authorizationManager.canRemoveNodes(deleteAndSave.getDelete()));
 
-        updateAndDeleteInternalNodes(deleteAndSave, sync);
+        updateAndDeleteInternalNodes(deleteAndSave, sync, null);
+    }
+
+    public void bulkChangeWithoutAuthorization(GenericDeleteAndSave deleteAndSave, boolean sync, UUID externalUserId) {
+        updateAndDeleteInternalNodes(deleteAndSave, sync, externalUserId);
     }
 
     void removeNodes(boolean sync, boolean disconnect, List<Identifier> identifiers) {
@@ -321,13 +325,13 @@ public class FrontendTermedService {
         termedRequester.exchange("/graphs", POST, Parameters.empty(), String.class, graph);
     }
 
-    private void updateAndDeleteInternalNodes(GenericDeleteAndSave deleteAndSave, boolean sync) {
+    private void updateAndDeleteInternalNodes(GenericDeleteAndSave deleteAndSave, boolean sync, UUID externalUserId) {
 
         Parameters params = new Parameters();
         params.add("changeset", "true");
         params.add("sync", String.valueOf(sync));
 
-        UUID username = ensureTermedUser();
+        UUID username = externalUserId == null ? ensureTermedUser() : externalUserId;
 
         this.termedRequester.exchange("/nodes", POST, params, String.class, deleteAndSave, username.toString(), USER_PASSWORD);
     }

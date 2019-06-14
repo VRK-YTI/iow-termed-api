@@ -47,6 +47,7 @@ public class NotificationController {
         }
 
         synchronized(this.lock) {
+            logger.debug("/notify - acquired lock");
 
             Map<UUID, List<Identifier>> nodesByGraphId =
                     notification.body.nodes.stream().collect(Collectors.groupingBy(node -> node.getType().getGraph().getId()));
@@ -56,6 +57,7 @@ public class NotificationController {
                 UUID graphId = entries.getKey();
                 List<Identifier> nodes = entries.getValue();
 
+                logger.debug("/notify - updating a set of " + nodes.size() + " for " + graphId.toString());
                 List<UUID> vocabularies = extractIdsOfType(nodes, vocabularyTypes);
                 List<UUID> concepts = extractIdsOfType(nodes, conceptTypes);
 
@@ -68,6 +70,7 @@ public class NotificationController {
                         break;
                 }
             }
+            logger.debug("/notify - releasing lock");
         }
     }
 

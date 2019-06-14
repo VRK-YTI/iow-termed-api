@@ -35,6 +35,6 @@ public enum ResolvableContentType {
             }
         }
 
-        throw new RuntimeException("Unsupported content types: " + contentTypes);
+        throw new RuntimeException("Unsupported content types: " + String.join(", ", contentTypes));
     }
 }

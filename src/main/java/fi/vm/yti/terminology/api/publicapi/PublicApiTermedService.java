@@ -1,20 +1,22 @@
 package fi.vm.yti.terminology.api.publicapi;
 
-import fi.vm.yti.terminology.api.TermedRequester;
-import fi.vm.yti.terminology.api.model.termed.Attribute;
-import fi.vm.yti.terminology.api.model.termed.GenericNode;
-import fi.vm.yti.terminology.api.util.JsonUtils;
-import fi.vm.yti.terminology.api.util.Parameters;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import fi.vm.yti.terminology.api.TermedRequester;
+import fi.vm.yti.terminology.api.model.termed.Attribute;
+import fi.vm.yti.terminology.api.model.termed.GenericNode;
+import fi.vm.yti.terminology.api.util.Parameters;
 import static fi.vm.yti.terminology.api.model.termed.VocabularyNodeType.TerminologicalVocabulary;
 import static fi.vm.yti.terminology.api.model.termed.VocabularyNodeType.Vocabulary;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +40,7 @@ public class PublicApiTermedService {
         params.add("select", "code");
         params.add("select", "properties.prefLabel");
         params.add("select", "properties.status");
+        params.add("select", "properties.language");
         params.add("select", "type");
 
 
@@ -47,7 +50,8 @@ public class PublicApiTermedService {
 
         params.add("max", "-1");
 
-        List<GenericNode> vocabulariesFromNodeTrees = requireNonNull(termedRequester.exchange("/node-trees", GET, params, new ParameterizedTypeReference<List<GenericNode>>() {}));
+        List<GenericNode> vocabulariesFromNodeTrees = requireNonNull(termedRequester.exchange("/node-trees", GET, params, new ParameterizedTypeReference<List<GenericNode>>() {
+        }));
         return extractResultFromNodeTrees(vocabulariesFromNodeTrees);
     }
 
@@ -61,6 +65,12 @@ public class PublicApiTermedService {
 
                     vocabulary.setPrefLabel(prefLabelAsLocalizable(genericNode));
                     vocabulary.setStatus(getStatus(genericNode));
+            List<String> languages = getLanguages(genericNode);
+            if (languages != null && !languages.isEmpty()) {
+                vocabulary.setLanguages(languages);
+            } else {
+                vocabulary.setLanguages(Arrays.asList("en", "fi", "sv"));
+            }
                     if (!codesAlreadyAdded.contains(genericNode.getType().getGraphId().toString())) {
                         result.add(vocabulary);
                         codesAlreadyAdded.add(genericNode.getType().getGraphId().toString());
@@ -91,4 +101,13 @@ public class PublicApiTermedService {
             }
         }
         return result;
-    }}
+    }
+
+    private List<String> getLanguages(GenericNode node) {
+        List<Attribute> languageAttributes = node.getProperties().get("language");
+        if (languageAttributes != null) {
+            return languageAttributes.stream().map(Attribute::getValue).sorted().collect(Collectors.toList());
+        }
+        return Collections.emptyList();
+    }
+}

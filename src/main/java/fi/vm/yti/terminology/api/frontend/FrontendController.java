@@ -3,6 +3,8 @@ package fi.vm.yti.terminology.api.frontend;
 import com.fasterxml.jackson.databind.JsonNode;
 import fi.vm.yti.security.AuthenticatedUserProvider;
 import fi.vm.yti.security.YtiUser;
+import fi.vm.yti.terminology.api.frontend.searchdto.TerminologySearchRequest;
+import fi.vm.yti.terminology.api.frontend.searchdto.TerminologySearchResponse;
 import fi.vm.yti.terminology.api.model.termed.*;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -35,12 +37,15 @@ public class FrontendController {
 
     private static final Logger logger = LoggerFactory.getLogger(FrontendController.class);
 
-    public FrontendController(FrontendTermedService termedService, FrontendElasticSearchService elasticSearchService,
-            FrontendGroupManagementService groupManagementService, AuthenticatedUserProvider userProvider,
-            @Value("${namespace.root}") String namespaceRoot,
-            @Value("${groupmanagement.public.url}") String groupManagementUrl,
-            @Value("${fake.login.allowed:false}") boolean fakeLoginAllowed, ServiceUrls serviceUrls,
-            @Value("${front.restrictFilterOptions}") boolean restrictFilterOptions) {
+    public FrontendController(FrontendTermedService termedService,
+                              FrontendElasticSearchService elasticSearchService,
+                              FrontendGroupManagementService groupManagementService,
+                              AuthenticatedUserProvider userProvider,
+                              @Value("${namespace.root}") String namespaceRoot,
+                              @Value("${groupmanagement.public.url}") String groupManagementUrl,
+                              @Value("${fake.login.allowed:false}") boolean fakeLoginAllowed,
+                              ServiceUrls serviceUrls,
+                              @Value("${front.restrictFilterOptions}") boolean restrictFilterOptions) {
         this.termedService = termedService;
         this.elasticSearchService = elasticSearchService;
         this.groupManagementService = groupManagementService;
@@ -106,37 +111,32 @@ public class FrontendController {
     }
 
     @RequestMapping(value = "/vocabularies", method = GET, produces = APPLICATION_JSON_VALUE)
-    JsonNode getVocabularyList(@RequestParam(required = false, defaultValue = "true") boolean incomplete) {
-        logger.info("GET /vocabularies requested incomplete=" + incomplete);
+    JsonNode getVocabularyList( @RequestParam(required = false, defaultValue = "true") boolean incomplete) {
+        logger.info("GET /vocabularies requested incomplete="+incomplete);
         return termedService.getVocabularyList(incomplete);
     }
 
     @RequestMapping(value = "/vocabulary", method = POST, produces = APPLICATION_JSON_VALUE)
-    UUID createVocabulary(@RequestParam(required = false) UUID templateGraphId, @RequestParam String prefix,
-            @RequestParam(required = false) @Nullable UUID graphId,
-            @RequestParam(required = false) @Nullable String typeUri,
+    UUID createVocabulary(@RequestParam UUID templateGraphId,
+                          @RequestParam String prefix,
+                          @RequestParam(required = false) @Nullable UUID graphId,
+                          @RequestParam(required = false, defaultValue = "true") boolean sync,
+                          @RequestBody GenericNode vocabularyNode) {
 
-            @RequestParam(required = false, defaultValue = "true") boolean sync,
-            @RequestBody GenericNode vocabularyNode) {
-        /*
-         * Poistetaan templateGraph id pois / valinnaiseksi siirtymän ajaksi  Sanaston
-         * nimiavaruus saadaan jatkossa suoraan frontendiltä type.uri attribuutissa
-         * (YTI-443) Muutetaan Sanasto-noden type->graph.id uudeksi yhden graafin id:ksi
-         * Nykyinen graafin id ja uri talletetaan sanasto-nodelle
-         */
+        try {
+            logger.info("POST /vocabulary requested with params: templateGraphId: " +
+                templateGraphId.toString() + ", prefix: " + prefix + ", vocabularyNode.id: " + vocabularyNode.getId().toString());
 
-        if (templateGraphId != null) {
-            logger.info("POST /vocabulary requested with params: templateGraphId: " + templateGraphId.toString()
-                    + ", prefix: " + prefix + ", vocabularyNode.id: " + vocabularyNode.getId().toString());
-
-        } else {
-            logger.info("POST /vocabulary requested with params: prefix: " + prefix + ", vocabularyNode.id: "
-                    + vocabularyNode.getId().toString());
+            UUID predefinedOrGeneratedGraphId = graphId != null ? graphId : UUID.randomUUID();
+            termedService.createVocabulary(templateGraphId, prefix, vocabularyNode, predefinedOrGeneratedGraphId, sync);
+            logger.debug("Vocabulary with prefix \"" + prefix + "\" created");
+            return predefinedOrGeneratedGraphId;
+        } catch(RuntimeException|Error e) {
+            logger.error("createVocabuluary failed", e);
+            throw e;
+        } finally {
+            logger.debug("Vocabulary creation finished");
         }
-
-        UUID predefinedOrGeneratedGraphId = graphId != null ? graphId : UUID.randomUUID();
-        termedService.createVocabulary(templateGraphId, prefix, vocabularyNode, predefinedOrGeneratedGraphId, sync);
-        return predefinedOrGeneratedGraphId;
     }
 
     @RequestMapping(value = "/vocabulary", method = DELETE, produces = APPLICATION_JSON_VALUE)
@@ -146,17 +146,16 @@ public class FrontendController {
     }
 
     @RequestMapping(value = "/concept", method = GET, produces = APPLICATION_JSON_VALUE)
-    @Nullable
-    GenericNodeInlined getConcept(@RequestParam UUID graphId, @RequestParam UUID conceptId) {
-        logger.info("GET /concept requested with params: graphId: " + graphId.toString() + ", conceptId: "
-                + conceptId.toString());
+    @Nullable GenericNodeInlined getConcept(@RequestParam UUID graphId,
+                                            @RequestParam UUID conceptId) {
+        logger.info("GET /concept requested with params: graphId: " + graphId.toString() + ", conceptId: " + conceptId.toString());
         return termedService.getConcept(graphId, conceptId);
     }
 
     @RequestMapping(value = "/collection", method = GET, produces = APPLICATION_JSON_VALUE)
-    GenericNodeInlined getCollection(@RequestParam UUID graphId, @RequestParam UUID collectionId) {
-        logger.info("GET /collection requested with params: graphId: " + graphId.toString() + ", collectionId: "
-                + collectionId.toString());
+    GenericNodeInlined getCollection(@RequestParam UUID graphId,
+                                     @RequestParam UUID collectionId) {
+        logger.info("GET /collection requested with params: graphId: " + graphId.toString() + ", collectionId: " + collectionId.toString());
         return termedService.getCollection(graphId, collectionId);
     }
 
@@ -180,7 +179,7 @@ public class FrontendController {
 
     @RequestMapping(value = "/modify", method = POST, produces = APPLICATION_JSON_VALUE)
     void updateAndDeleteInternalNodes(@RequestParam(required = false, defaultValue = "true") boolean sync,
-            @RequestBody GenericDeleteAndSave deleteAndSave) {
+                                      @RequestBody GenericDeleteAndSave deleteAndSave) {
         logger.info("POST /modify requested with deleteAndSave: delete ids: ");
         for (int i = 0; i < deleteAndSave.getDelete().size(); i++) {
             logger.info(deleteAndSave.getDelete().get(i).getId().toString());
@@ -194,10 +193,10 @@ public class FrontendController {
     }
 
     @RequestMapping(value = "/remove", method = DELETE, produces = APPLICATION_JSON_VALUE)
-    void removeNodes(@RequestParam boolean sync, @RequestParam boolean disconnect,
-            @RequestBody List<Identifier> identifiers) {
-        logger.info("DELETE /remove requested with params: sync: " + sync + ", disconnect: " + disconnect
-                + ", identifier ids: ");
+    void removeNodes(@RequestParam boolean sync,
+                     @RequestParam boolean disconnect,
+                     @RequestBody List<Identifier> identifiers) {
+        logger.info("DELETE /remove requested with params: sync: " + sync + ", disconnect: " + disconnect + ", identifier ids: ");
         for (final Identifier ident : identifiers) {
             logger.info(ident.getId().toString());
         }
@@ -230,6 +229,13 @@ public class FrontendController {
     String searchConcept(@RequestBody JsonNode query) {
         logger.info("POST /searchConcept requested with query: " + query.toString());
         return elasticSearchService.searchConcept(query);
+    }
+
+    @RequestMapping(value = "/searchTerminology", method = POST, produces = APPLICATION_JSON_VALUE)
+    @ResponseBody
+    TerminologySearchResponse searchTerminology(@RequestBody TerminologySearchRequest request) {
+        logger.info("POST /searchTerminology requested with query: " + request.toString());
+        return elasticSearchService.searchTerminology(request);
     }
 
     @RequestMapping(value = "/configuration", method = GET, produces = APPLICATION_JSON_VALUE)

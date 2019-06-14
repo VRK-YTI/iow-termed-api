@@ -35,9 +35,10 @@ public class PublicApiController {
     @RequestMapping(value = "/searchconcept", method = GET, produces = APPLICATION_JSON_VALUE)
     List<PublicApiConcept> searchConceptWithStatus(@ApiParam(value = "Serch term for elastic search.") @RequestParam(value = "searchTerm", required = false, defaultValue = "") String searchTerm,
                                                    @ApiParam(value = "Vocabulary ID.") @RequestParam(value = "vocabularyId", required = false, defaultValue = "0") String vocabularyId,
-                                                   @ApiParam(value = "Status for filtering. If missing,  show all.") @RequestParam(required = false) String status) {
+                                                   @ApiParam(value = "Status for filtering. If missing, show all.") @RequestParam(required = false) String status,
+                                                   @ApiParam(value = "Language for filtering. If missing, show all.") @RequestParam(required = false) String language) {
 
         logger.info("GET /searchconcept requested");
-        return publicApiElasticSearchService.searchConcept(searchTerm, vocabularyId, status);
+        return publicApiElasticSearchService.searchConcept(searchTerm, vocabularyId, status, language);
     }
 }

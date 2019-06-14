@@ -1,6 +1,7 @@
 package fi.vm.yti.terminology.api.publicapi;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 public class PublicApiVocabulary {
@@ -9,6 +10,7 @@ public class PublicApiVocabulary {
     private String uri;
     private String status;
     private HashMap<String, String> prefLabel;
+    private List<String> languages;
 
     public UUID getId() {
         return id;
@@ -39,5 +41,13 @@ public class PublicApiVocabulary {
 
     public void setPrefLabel(HashMap<String, String> prefLabel) {
         this.prefLabel = prefLabel;
+    }
+
+    public List<String> getLanguages() {
+        return languages;
+    }
+
+    public void setLanguages(final List<String> languages) {
+        this.languages = languages;
     }
 }

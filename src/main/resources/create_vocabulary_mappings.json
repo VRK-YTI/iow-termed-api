@@ -13,7 +13,7 @@
       "sortByLabel": {
         "path_match": "sortByLabel.*",
         "mapping": {
-          "type": "text"
+          "type": "keyword"
         }
       }
     },
@@ -22,7 +22,7 @@
         "path_match": "vocabulary.label.*",
         "mapping": {
           "index": false,
-          "type": "text"
+          "type": "keyword"
         }
       }
     },

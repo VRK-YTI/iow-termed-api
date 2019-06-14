@@ -4,6 +4,8 @@ import fi.vm.yti.terminology.api.exception.TermedEndpointException;
 import fi.vm.yti.terminology.api.util.Parameters;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -19,6 +21,7 @@ import java.util.function.Supplier;
 @Service
 public class TermedRequester {
 
+    private static final Logger logger = LoggerFactory.getLogger(TermedRequester.class);
     private static TermedContentType DEFAULT_CONTENT_TYPE = TermedContentType.JSON;
 
     private final String termedUser;
@@ -157,6 +160,7 @@ public class TermedRequester {
                                                               @NotNull String username,
                                                               @NotNull String password,
                                                               @NotNull TermedContentType contentType) {
+        logger.debug("Termed request: " + method.toString() + ":" + path);
         return mapExceptions(() -> restTemplate.exchange(createUrl(path, parameters), method, new HttpEntity<>(body, createHeaders(username, password, contentType)), responseType).getBody());
     }
 
@@ -178,20 +182,38 @@ public class TermedRequester {
                                                               @NotNull String username,
                                                               @NotNull String password,
                                                               @NotNull TermedContentType contentType) {
+        logger.debug("Termed request: " + method.toString() + ":" + path);
         return mapExceptions(() -> restTemplate.exchange(createUrl(path, parameters), method, new HttpEntity<>(body, createHeaders(username, password, contentType)), responseType).getBody());
     }
 
     private static <T> T mapExceptions(Supplier<T> supplier) {
+        boolean success = false;
         try {
-            return supplier.get();
+            if (logger.isDebugEnabled()) {
+                StringBuilder sb = new StringBuilder("Making termed request (");
+                StackTraceElement[] stes = new Exception().getStackTrace();
+                for (int i = 1; i < stes.length && i < 5; i++) {
+                    sb.append(stes[i].toString());
+                    sb.append(";");
+                }
+                sb.append(")");
+                logger.debug(sb.toString());
+            }
+            T ret = supplier.get();
+            success = true;
+            return ret;
         } catch (ResourceAccessException e) {
+            logger.warn("Catched ResourceAccessException: " + e.getMessage(), e);
             throw new TermedEndpointException(e);
         } catch (HttpClientErrorException ex)   {
+            logger.warn("Catched HttpClientErrorException(" + ex.getStatusCode() + "): " + ex.getMessage(), ex);
             if (ex.getStatusCode() != HttpStatus.NOT_FOUND) {
                 throw ex;
             } else {
                 return null;
             }
+        } finally {
+            logger.debug("Termed request finished (success: " + success + ")");
         }
     }
 

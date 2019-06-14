@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import fi.vm.yti.terminology.api.util.JsonUtils;
 import java.util.*;
 
 import static fi.vm.yti.terminology.api.util.JsonUtils.*;

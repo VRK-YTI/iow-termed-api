@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,12 +32,12 @@ public class PublicApiController {
         return termedService.getVocabularyList();
     }
 
-    @RequestMapping(value = "/searchconcept/searchterm/{searchTerm}/vocabulary/{vocabularyId}", method = GET, produces = APPLICATION_JSON_VALUE)
-    List<PublicApiConcept> searchConceptWithStatus(@ApiParam(value = "Serch term for elastic search.") @PathVariable String searchTerm,
-                                                   @ApiParam(value = "Vocabulary ID.") @PathVariable String vocabularyId,
+    @RequestMapping(value = "/searchconcept", method = GET, produces = APPLICATION_JSON_VALUE)
+    List<PublicApiConcept> searchConceptWithStatus(@ApiParam(value = "Serch term for elastic search.") @RequestParam(value = "searchTerm", required = false, defaultValue = "") String searchTerm,
+                                                   @ApiParam(value = "Vocabulary ID.") @RequestParam(value = "vocabularyId", required = false, defaultValue = "0") String vocabularyId,
                                                    @ApiParam(value = "Status for filtering. If missing,  show all.") @RequestParam(required = false) String status) {
 
-        logger.info("GET /searchconcept/searchterm/{searchTerm}/vocabulary/{vocabularyId} requested");
+        logger.info("GET /searchconcept requested");
         return publicApiElasticSearchService.searchConcept(searchTerm, vocabularyId, status);
     }
 }

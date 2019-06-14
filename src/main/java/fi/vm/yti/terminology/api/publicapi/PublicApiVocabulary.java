@@ -6,11 +6,20 @@ import java.util.UUID;
 public class PublicApiVocabulary {
 
     private UUID id;
+    private String uri;
     private String status;
     private HashMap<String, String> prefLabel;
 
     public UUID getId() {
         return id;
+    }
+
+    public void setUri(String uri) {
+        this.uri = uri;
+    }
+
+    public String getUri() {
+        return uri;
     }
 
     public void setId(UUID id) {

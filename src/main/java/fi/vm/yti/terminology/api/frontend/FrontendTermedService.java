@@ -8,7 +8,9 @@ import fi.vm.yti.security.YtiUser;
 import fi.vm.yti.terminology.api.TermedRequester;
 import fi.vm.yti.terminology.api.exception.NodeNotFoundException;
 import fi.vm.yti.terminology.api.exception.VocabularyNotFoundException;
+import fi.vm.yti.terminology.api.index.Vocabulary;
 import fi.vm.yti.terminology.api.integration.IntegrationService;
+import fi.vm.yti.terminology.api.migration.DomainIndex;
 import fi.vm.yti.terminology.api.model.termed.*;
 import fi.vm.yti.terminology.api.security.AuthorizationManager;
 import fi.vm.yti.terminology.api.util.JsonUtils;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static fi.vm.yti.security.AuthorizationException.check;
 import static fi.vm.yti.terminology.api.model.termed.VocabularyNodeType.TerminologicalVocabulary;
@@ -35,15 +38,22 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.*;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toList;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
+
+import static fi.vm.yti.terminology.api.util.JsonUtils.asStream;
+
 
 @Service
 public class FrontendTermedService {
 
+    private static final String TERMINOLOGY_ROOT = "TerminologyRoot";
+
     private static final Logger logger = LoggerFactory.getLogger(FrontendTermedService.class);
 
     private static final String USER_PASSWORD = "user";
+
     private static final Pattern UUID_PATTERN = Pattern
             .compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     private static final Logger LOGGER = LoggerFactory.getLogger(FrontendTermedService.class);
@@ -54,6 +64,8 @@ public class FrontendTermedService {
     private final AuthenticatedUserProvider userProvider;
     private final AuthorizationManager authorizationManager;
     private final String namespaceRoot;
+
+    private UUID TERMINOLOGY_ROOT_ID = null;
 
     @Autowired
     public FrontendTermedService(TermedRequester termedRequester, FrontendGroupManagementService groupManagementService,
@@ -109,17 +121,18 @@ public class FrontendTermedService {
         }
     }
 
-    @NotNull JsonNode getVocabularyList(boolean incomplete) {
+    @NotNull
+    public JsonNode getVocabularyList(boolean incomplete) {
 
-        if(userProvider.getUser() != null){ 
-            System.err.println("getVocabularyList:"+userProvider.getUser().getUsername() );
+        if (userProvider.getUser() != null) {
+            LOGGER.error("getVocabularyList:" + userProvider.getUser().getUsername());
         }
         List<UUID> orgList = new ArrayList<>();
 
         YtiUser user = userProvider.getUser();
         // Resolve current organizations for filtering
-        Map<UUID,?> rolesAndOrgs = user.getRolesInOrganizations();
-        rolesAndOrgs.forEach((k,v)->{
+        Map<UUID, ?> rolesAndOrgs = user.getRolesInOrganizations();
+        rolesAndOrgs.forEach((k, v) -> {
             orgList.add(k);
         });
         Parameters params = new Parameters();
@@ -131,54 +144,88 @@ public class FrontendTermedService {
         params.add("select", "references.contributor");
         params.add("select", "references.inGroup");
 
-        params.add("where",
-            "type.id:" +  TerminologicalVocabulary );
+        params.add("where", "type.id:" + TerminologicalVocabulary);
         params.add("max", "-1");
         // Execute full search
-        JsonNode rv =  requireNonNull(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
+        JsonNode rv = requireNonNull(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
         // Super-user sees all
-        if(user.isSuperuser()){
-            return requireNonNull(rv);            
+        if (user.isSuperuser()) {
+            return requireNonNull(rv);
         }
         // normal users sees filtered
         List<JsonNode> nodes = new ArrayList<>();
 
-        for(int x=0;x<rv.size();x++){
+        for (int x = 0; x < rv.size(); x++) {
             JsonNode n = rv.get(x);
-            UUID id=UUID.fromString(n.at("/references/contributor/0/id").textValue());
-            String status=n.at("/properties/status/0/value").textValue();            
-            if(status != null && 
-               status.equalsIgnoreCase("INCOMPLETE")) {
-                if(incomplete && 
-                   orgList.contains(id)){
+            UUID id = UUID.fromString(n.at("/references/contributor/0/id").textValue());
+            String status = n.at("/properties/status/0/value").textValue();
+            if (status != null && status.equalsIgnoreCase("INCOMPLETE")) {
+                if (incomplete && orgList.contains(id)) {
                     nodes.add(n);
                 } else {
-                    if(logger.isDebugEnabled()){ 
-                        logger.debug("Dropped INCOMPLETE vocabulary "+id.toString());
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Dropped INCOMPLETE vocabulary " + id.toString());
                     }
                 }
             } else {
                 nodes.add(n);
-            }  
+            }
         }
         rv = null;
-        ObjectMapper mapper = new ObjectMapper();        
-        return requireNonNull(mapper.convertValue(nodes,JsonNode.class));
+        ObjectMapper mapper = new ObjectMapper();
+        return requireNonNull(mapper.convertValue(nodes, JsonNode.class));
+    }
+
+    //    @NotNull List<UUID> fetchAllAvailableVocabularyIds() {
+    public List<UUID> getVocabularies() {
+        logger.info("Fetching all "+TerminologicalVocabulary+ " IDs.");
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("where", "type.id:" + TerminologicalVocabulary);
+        params.add("max", "-1");
+
+        JsonNode jn = termedRequester.exchange("/node-trees", GET, params, JsonNode.class);
+        return asStream(termedRequester.exchange("/node-trees", GET, Parameters.empty(), JsonNode.class)).filter(x -> x.get("id") != null)
+                .map(x -> UUID.fromString(x.get("id").textValue()))
+                .collect(toList());
     }
 
     void createVocabulary(UUID templateGraphId, String prefix, GenericNode vocabularyNode, UUID graphId, boolean sync) {
 
+        /*
+         * Poistetaan templateGraph id pois / valinnaiseksi siirtymän ajaksi  Sanaston
+         * nimiavaruus saadaan jatkossa suoraan frontendiltä type.uri attribuutissa
+         * (YTI-443) Muutetaan Sanasto-noden type->graph.id uudeksi yhden graafin id:ksi
+         * Nykyinen graafin id ja uri talletetaan sanasto-nodelle
+         */
+        //
+
         check(authorizationManager.canCreateVocabulary(vocabularyNode));
+        String code = prefix;
+        String uri = formatNamespace(prefix);
+        System.out.println("Incomin vocabulary URI=" +  vocabularyNode.getUri());
+        vocabularyNode.setUri(uri);
+        vocabularyNode.setCode(code);
+        vocabularyNode.setId(graphId);
+        // 
+        System.out.println("Incomin vocabulary URI2=" +  vocabularyNode.getUri());
+
+        // Use hardcoded terminologicalVocabulary meta model
+        templateGraphId = DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
 
         List<MetaNode> templateMetaNodes = getTypes(templateGraphId);
         List<Property> prefLabel = mapToList(vocabularyNode.getProperties().get("prefLabel"), Attribute::asProperty);
 
-        createGraph(prefix, prefLabel, graphId);
-        List<MetaNode> graphMetaNodes = mapToList(templateMetaNodes, node -> node.copyToGraph(graphId));
+        // Get root id where to add vocabularies
+        UUID rootId = getRootGraphId();
+        System.out.println("ROOT ID=" + rootId.toString());
+        System.out.println("CreateVocabulary templateid: " + templateGraphId + " prefix:" + prefix+ " graphId;"+graphId.toString());
 
-        updateTypes(graphId, graphMetaNodes);
         updateAndDeleteInternalNodes(
-                new GenericDeleteAndSave(emptyList(), singletonList(vocabularyNode.copyToGraph(graphId))), sync, null);
+                new GenericDeleteAndSave(emptyList(), singletonList(vocabularyNode.copyToGraph(rootId))), sync, null);
+        System.out.println("After meta added");
+        JsonUtils.prettyPrintJson(vocabularyNode);
     }
 
     void deleteVocabulary(UUID graphId) {
@@ -186,7 +233,7 @@ public class FrontendTermedService {
         check(authorizationManager.canDeleteVocabulary(graphId));
 
         removeNodes(true, false, getAllNodeIdentifiers(graphId));
-        removeTypes(graphId, getTypes(graphId));
+        removeTypes(graphId, getMetaTypes(graphId));
         deleteGraph(graphId);
     }
 
@@ -335,7 +382,7 @@ public class FrontendTermedService {
                 USER_PASSWORD);
     }
 
-    public @NotNull List<MetaNode> getTypes(UUID graphId) {
+    public @NotNull List<MetaNode> getMetaTypes(UUID graphId) {
 
         Parameters params = new Parameters();
         params.add("max", "-1");
@@ -345,6 +392,33 @@ public class FrontendTermedService {
         return requireNonNull(
                 termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<List<MetaNode>>() {
                 }));
+    }
+
+    // For types-api, filter out defined and used in scheme attributes.
+    public @NotNull List<MetaNode> getTypes(UUID graphId) {
+
+        Parameters params = new Parameters();
+        params.add("max", "-1");
+
+        String path = graphId != null ? "/graphs/" + graphId + "/types" : "/types";
+
+        List<MetaNode> rv = termedRequester.exchange(path, GET, params,
+                new ParameterizedTypeReference<List<MetaNode>>() {
+                });
+
+        for (MetaNode o : rv) {
+            List<AttributeMeta> atts = o.getTextAttributes();
+            atts = atts.stream().filter(
+                    a -> !(a.getId().equalsIgnoreCase("definedInScheme") || a.getId().equalsIgnoreCase("usedInScheme")))
+                    .collect(Collectors.toList());
+            if (o.attributeExist("definedInScheme")) {
+                o.removeAttribute("definedInScheme");
+            }
+            if (o.attributeExist("usedInScheme")) {
+                o.removeAttribute("usedInScheme");
+            }
+        }
+        return requireNonNull(rv);
     }
 
     public @NotNull List<Graph> getGraphs() {
@@ -357,8 +431,49 @@ public class FrontendTermedService {
                 }));
     }
 
+    public @NotNull UUID getRootGraphId() {
+
+        if (TERMINOLOGY_ROOT_ID != null)
+            return TERMINOLOGY_ROOT_ID;
+        Graph root = null;
+        Parameters params = new Parameters();
+
+        params.add("max", "-1");
+        List<Graph> graphs = termedRequester.exchange("/graphs", GET, params,
+                new ParameterizedTypeReference<List<Graph>>() {
+                });
+
+        for (Graph g : graphs) {
+            if (g.getCode().equalsIgnoreCase(TERMINOLOGY_ROOT)) {
+                root = g;
+                TERMINOLOGY_ROOT_ID = g.getId();
+            }
+        }
+
+        if (root == null) {
+            // Create missing Terminology root graph and start using it
+            List<Property> prefLabel = new ArrayList<>();
+            Property p = new Property("fi", TERMINOLOGY_ROOT);
+            prefLabel.add(p);
+            // generate ID for it and cache it for later usage
+            TERMINOLOGY_ROOT_ID = UUID.randomUUID();
+            // (prefix, prefLabel, graphId);
+            createGraph(TERMINOLOGY_ROOT, prefLabel, TERMINOLOGY_ROOT_ID);
+            // Add meta model to root
+            // Use hardcoded terminologicalVocabulary meta model
+            List<MetaNode> templateMetaNodes = getTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+            List<MetaNode> graphMetaNodes = mapToList(templateMetaNodes, node -> node.copyToGraph(TERMINOLOGY_ROOT_ID));
+            updateTypes(TERMINOLOGY_ROOT_ID, graphMetaNodes);
+        }
+        return TERMINOLOGY_ROOT_ID;
+    }
+
+    // One root graph, so return always root, incoming  id is actually  vocabulary id
     public @NotNull Graph getGraph(UUID graphId) {
-        return requireNonNull(termedRequester.exchange("/graphs/" + graphId, GET, Parameters.empty(), Graph.class));
+         logger.info("getGraph ID:"+graphId.toString());
+         
+        return requireNonNull(termedRequester.exchange("/graphs/" + getRootGraphId(), GET, Parameters.empty(), Graph.class));
+//        return requireNonNull(termedRequester.exchange("/graphs/" + graphId, GET, Parameters.empty(), Graph.class));
     }
 
     private @NotNull List<Identifier> getAllNodeIdentifiers(UUID graphId) {

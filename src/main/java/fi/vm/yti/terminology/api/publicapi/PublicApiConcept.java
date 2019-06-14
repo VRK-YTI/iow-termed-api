@@ -10,6 +10,8 @@ public class PublicApiConcept {
     private HashMap<String, String> definition;
     private HashMap<String, String> vocabularyPrefLabel; //prefLabel of concept's owning prefLabel, needed in the UI
     private UUID vocabularyId;
+    private String vocabularyUri;
+
     private String uri;
     private String url;
     private String status;
@@ -20,6 +22,14 @@ public class PublicApiConcept {
 
     public void setUri(String uri) {
         this.uri = uri;
+    }
+
+    public String getVocabularyUri() {
+        return vocabularyUri;
+    }
+
+    public void setVocabularyUri(String uri) {
+        this.vocabularyUri = uri;
     }
 
     public String getUrl() {

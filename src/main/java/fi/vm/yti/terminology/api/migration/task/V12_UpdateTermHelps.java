@@ -1,25 +1,21 @@
 package fi.vm.yti.terminology.api.migration.task;
 
-import fi.vm.yti.migration.MigrationTask;
-import fi.vm.yti.terminology.api.migration.MigrationService;
-import fi.vm.yti.terminology.api.migration.PropertyUtil;
-import fi.vm.yti.terminology.api.migration.ReferenceIndex;
-import fi.vm.yti.terminology.api.model.termed.MetaNode;
-import fi.vm.yti.terminology.api.model.termed.ReferenceMeta;
-import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
-import fi.vm.yti.terminology.api.model.termed.TypeId;
-import fi.vm.yti.terminology.api.model.termed.Property;
-import fi.vm.yti.terminology.api.model.termed.AttributeMeta;
-import fi.vm.yti.terminology.api.model.termed.NodeType;
-
-import fi.vm.yti.terminology.api.migration.DomainIndex;
-import fi.vm.yti.terminology.api.migration.AttributeIndex;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
+import fi.vm.yti.migration.MigrationTask;
+import fi.vm.yti.terminology.api.migration.AttributeIndex;
+import fi.vm.yti.terminology.api.migration.MigrationService;
+import fi.vm.yti.terminology.api.migration.PropertyUtil;
+import fi.vm.yti.terminology.api.model.termed.AttributeMeta;
+import fi.vm.yti.terminology.api.model.termed.MetaNode;
+import fi.vm.yti.terminology.api.model.termed.NodeType;
+import fi.vm.yti.terminology.api.model.termed.Property;
+import fi.vm.yti.terminology.api.model.termed.ReferenceMeta;
+import fi.vm.yti.terminology.api.model.termed.TypeId;
+import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
 
 /**
  * Migration for YTI-1106, classification->information domain and
@@ -75,7 +71,6 @@ public class V12_UpdateTermHelps implements MigrationTask {
                         "Termi, jolla käyttäjä ohjataan katsomaan tiettyyn käsitteeseen liitettyjä tietoja",
                         "Term not designating the concept, but which may be useful for search or reference purposes")));
             }
-            List<ReferenceMeta> ra = meta.getReferenceAttributes();
         }
         if (domainName.equals("Term")) {
             // termInfo
@@ -124,33 +119,4 @@ public class V12_UpdateTermHelps implements MigrationTask {
         }
         return rv;
     }
-
-    /**
-     *
-     * Hakutermi (searchTerm) Termi, jolla käyttäjä ohjataan katsomaan tiettyyn
-     * käsitteeseen liitettyjä tietoja Term not designating the concept, but which
-     * may be useful for search or reference purposes
-     * 
-     * 
-     * 
-     * Koostumussuhteinen alakäsite (hasPart) Koostumussuhteinen käsite, joka vastaa
-     * kokonaisuuden osaa Narrower concept that is part of this concept Järjestys:
-     * Koostumussuhteisen yläkäsitteen jälkeen (isPartOf index 18)
-     * 
-     * 
-     * 
-     * Hierarkkinen alakäsite (narrower) Käsite, joka on hierarkkisessa suhteessa
-     * tähän käsitteeseen ja jonka sisältöön kuuluu tämän käsitteen sisältö Concept
-     * that is in hierarchical relation with this concept and contains semantic
-     * meaning of this concept Järjestys: Hierarkkisen yläkäsitteen jälkeen
-     * (BroaderConcept index 16)
-     * 
-     * 
-     * 
-     * Uusi attribuutti termille: Termin lisätieto Nimi: Term info / Termin
-     * lisätieto URI: http://uri.suomi.fi/datamodel/ns/st#termInfo Määritelmä:
-     * Additional information about the term / Lisätietoa termin käytöstä Järjestys:
-     * Termin vastaavuus jälkeen
-     * 
-     */
 }

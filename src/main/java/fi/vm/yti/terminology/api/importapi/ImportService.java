@@ -40,7 +40,6 @@ import java.util.UUID;
 @EnableJms
 public class ImportService {
 
-    private final TermedRequester termedRequester;
     private final FrontendGroupManagementService groupManagementService;
     private final FrontendTermedService termedService;
     private final AuthenticatedUserProvider userProvider;
@@ -59,15 +58,13 @@ public class ImportService {
 
 
     @Autowired
-    public ImportService(TermedRequester termedRequester,
-                         FrontendGroupManagementService groupManagementService,
+    public ImportService(FrontendGroupManagementService groupManagementService,
                          FrontendTermedService frontendTermedService,
                          AuthenticatedUserProvider userProvider,
                          AuthorizationManager authorizationManager,
                          YtiMQService ytiMQService,
                          JmsMessagingTemplate jmsMessagingTemplate,
                          @Value("${mq.active.subsystem}") String subSystem) {
-        this.termedRequester = termedRequester;
         this.groupManagementService = groupManagementService;
         this.termedService = frontendTermedService;
         this.userProvider = userProvider;
@@ -77,7 +74,7 @@ public class ImportService {
         this.jmsMessagingTemplate = jmsMessagingTemplate;
     }
 
-    ResponseEntity getStatus(UUID jobtoken, boolean full){
+    ResponseEntity<String> getStatus(UUID jobtoken, boolean full){
         // Status not_found/running/errors
         // Query status information from ActiveMQ
         HttpStatus status;
@@ -117,7 +114,7 @@ public class ImportService {
         return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
     }
 
-    ResponseEntity checkIfImportIsRunning(String uri){
+    ResponseEntity<String> checkIfImportIsRunning(String uri){
         System.out.println("CheckIfRunning");
         boolean status = ytiMQService.checkIfImportIsRunning(uri);
         System.out.println("CheckIfRunning - "+status);
@@ -126,14 +123,13 @@ public class ImportService {
         return new ResponseEntity<>("{\"status\":\"Stopped\"}", HttpStatus.OK);
     }
 
-    ResponseEntity handleNtrfDocumentAsync(String format, UUID vocabularyId, MultipartFile file) {
+    ResponseEntity<String> handleNtrfDocumentAsync(String format, UUID vocabularyId, MultipartFile file) {
         String rv;
         System.out.println("Incoming vocabularity= "+vocabularyId+" - file:"+file.getName()+" size:"+file.getSize()+ " type="+file.getContentType());
         // Fail if given format string is not ntrf
         if (!format.equals("ntrf")) {
             logger.error("Unsupported format:<" + format + "> (Currently supported formats: ntrf)");
             // Unsupported format
-            ResponseEntity<?> re = new ResponseEntity<>("Unsupported format:<" + format + ">    (Currently supported formats: ntrf)\n", HttpStatus.NOT_ACCEPTABLE);
             return new ResponseEntity<>("Unsupported format:<" + format + ">    (Currently supported formats: ntrf)\n", HttpStatus.NOT_ACCEPTABLE);
         }
 

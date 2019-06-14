@@ -547,6 +547,39 @@ public final class AttributeIndex {
         );
     }
 
+    @NotNull
+    public static AttributeMeta usedInScheme(TypeId domain, long index) {
+        return new AttributeMeta(
+                "usedInScheme",
+                "http://uri.suomi.fi/datamodel/ns/st#usedInScheme",
+                index,
+                domain,
+                emptyMap(),
+                merge(
+                        PropertyUtil.prefLabel(
+                                "Käytössä sanastossa",
+                                "Used in scheme"
+                        )
+                )
+        );
+    }
+
+    @NotNull
+    public static AttributeMeta definedInScheme(TypeId domain, long index) {
+        return new AttributeMeta(
+                "definedInScheme",
+                "http://www.w3.org/2004/02/skos/core#inScheme",
+                index,
+                domain,
+                emptyMap(),
+                merge(
+                        PropertyUtil.prefLabel(
+                                "Määritelty sanastossa",
+                                "Defined in scheme"
+                        )
+                )
+        );
+    }
 
     // prevent construction
     private AttributeIndex() {

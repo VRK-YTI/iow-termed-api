@@ -1,36 +1,25 @@
 package fi.vm.yti.terminology.api.importapi;
 
-import fi.vm.yti.security.AuthenticatedUserProvider;
-import fi.vm.yti.terminology.api.frontend.FrontendElasticSearchService;
-import fi.vm.yti.terminology.api.frontend.FrontendGroupManagementService;
-import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
-import fi.vm.yti.terminology.api.index.Vocabulary;
-import fi.vm.yti.terminology.api.util.JsonUtils;
-import fi.vm.yti.terminology.api.model.termed.GenericNode;
-import fi.vm.yti.terminology.api.model.termed.GenericNodeInlined;
-import fi.vm.yti.terminology.api.model.termed.Graph;
-import io.swagger.annotations.ApiParam;
-
-import org.springframework.http.HttpStatus;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
+import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
+import fi.vm.yti.terminology.api.model.termed.Graph;
+import io.swagger.annotations.ApiParam;
 
 @RestController
 @RequestMapping("/export")
@@ -38,26 +27,12 @@ public class ExportController {
 
     private final FrontendTermedService termedService;
     private final ExportService exportService;
-    private final FrontendGroupManagementService groupManagementService;
-    private final AuthenticatedUserProvider userProvider;
-    private final String namespaceRoot;
-    private final String groupManagementUrl;
-    private final boolean fakeLoginAllowed;
 
     private static final Logger logger = LoggerFactory.getLogger(ExportController.class);
 
-    public ExportController(FrontendTermedService termedService, ExportService exportService,
-            FrontendGroupManagementService groupManagementService, AuthenticatedUserProvider userProvider,
-            @Value("${namespace.root}") String namespaceRoot,
-            @Value("${groupmanagement.public.url}") String groupManagementUrl,
-            @Value("${fake.login.allowed:false}") boolean fakeLoginAllowed) {
+    public ExportController(FrontendTermedService termedService, ExportService exportService) {
         this.termedService = termedService;
         this.exportService = exportService;
-        this.groupManagementService = groupManagementService;
-        this.userProvider = userProvider;
-        this.namespaceRoot = namespaceRoot;
-        this.groupManagementUrl = groupManagementUrl;
-        this.fakeLoginAllowed = fakeLoginAllowed;
     }
 
     /**
@@ -73,12 +48,12 @@ public class ExportController {
      */
     @RequestMapping(value = "/{vocabularyID}", method = GET, produces = { APPLICATION_JSON_VALUE, "application/rdf+xml",
             "text/turtle" })
-    ResponseEntity export(
+    ResponseEntity<String> export(
             @ApiParam(value = "Vocabulary identifier (UUID/URI)") @PathVariable("vocabularyID") Object vocId,
             @ApiParam(value = "Export format JSON, RDF, TURTLE.") @RequestParam(value = "format", required = true) String format) {
         logger.debug("ExportController uuid:" + vocId + " format:" + format);
 
-        ResponseEntity re = null;
+        ResponseEntity<String>re = null;
         UUID id = null;
         // Try to cast incoming as UUID and if fails, assume it is Code ie. name of the
         // vocabulary
@@ -110,7 +85,7 @@ public class ExportController {
 
     @RequestMapping(value = "/{vocabularyID}/type/{nodeType}", produces = { APPLICATION_JSON_VALUE,
             "application/rdf+xml", "text/turtle" }, method = GET)
-    ResponseEntity export(
+    ResponseEntity<String> export(
             @ApiParam(value = "Vocabulary identifier (UUID/URI)") @PathVariable("vocabularyID") Object vocId,
             @ApiParam(value = "Type of requested nodes. (Concept, Collection, Term)") @PathVariable("nodeType") String nodeType,
             @ApiParam(value = "Export format JSON, RDF, TURTLE.") @RequestParam(value = "format", required = true) String format) {
@@ -130,7 +105,7 @@ public class ExportController {
             id = null;
         }
 
-        ResponseEntity re = null;
+        ResponseEntity<String> re = null;
         // Id resolved, go fetch data
         if (id != null) {
             if(logger.isDebugEnabled()){

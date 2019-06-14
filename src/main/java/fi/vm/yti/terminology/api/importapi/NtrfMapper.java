@@ -755,8 +755,6 @@ public class NtrfMapper {
     void handleRECORD(Graph vocabulary, RECORD r, List<GenericNode> addNodeList,  List<Identifier> deleteNodeList) {
         String code = "";
         UUID currentId = null;
-        String uri = "";
-        Long number = 0L;
         String createdBy;
         LocalDate createdDate;
         String lastModifiedBy = null;
@@ -1317,7 +1315,6 @@ public class NtrfMapper {
     }
 
     private void handleSUBJ(SUBJ subj, Map<String, List<Attribute>> properties) {
-        List<?> contentList = subj.getContent();
         if (subj != null) {
             subj.getContent().forEach(o -> {
                 if (o instanceof String) {
@@ -1574,7 +1571,6 @@ public class NtrfMapper {
      */
     private void handleCLAS(CLAS o, Map<String, List<Attribute>> properties) {
         System.out.println(" Set clas: " + o.getContent().toString());
-        String attValue = "";
         if (o.getContent().size() > 0) {
             List<String> clasList = new ArrayList<>();
             o.getContent().forEach(obj -> {
@@ -1949,10 +1945,6 @@ public class NtrfMapper {
             logger.debug("handleSY-part:" + synonym.toString());
         // Synonym fields
         String equi = "";
-        String hogr = "";
-        String term = "";
-        String sourf = "";
-        String scope = "";
         // Attributes are stored to property-list
         Map<String, List<Attribute>> properties = new HashMap<>();
         if (synonym.getGEOG() != null) {

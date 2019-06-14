@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.http.HttpMethod.DELETE;
 
 @Service
 /*
@@ -48,6 +49,51 @@ public class MigrationService {
     public void createGraph(Graph graph) {
         termedRequester.exchange("/graphs", POST, Parameters.empty(), String.class, graph);
     }
+
+
+    public void deleteVocabularyGraph(UUID graphId) {
+
+        removeNodes(true, false, getAllNodeIdentifiers(graphId));
+        removeTypes(graphId, getTypes(graphId));
+        deleteGraph(graphId);
+    }
+
+    private void deleteGraph(UUID graphId) {
+        termedRequester.exchange("/graphs/" + graphId, DELETE, Parameters.empty(), String.class);
+    }
+
+    private @NotNull List<Identifier> getAllNodeIdentifiers(UUID graphId) {
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("select", "type");
+        params.add("where", "graph.id:" + graphId);
+        params.add("max", "-1");
+
+        return requireNonNull(termedRequester.exchange("/node-trees", GET, params,
+                new ParameterizedTypeReference<List<Identifier>>() {
+                }));
+    }
+    void removeNodes(boolean sync, boolean disconnect, List<Identifier> identifiers) {
+
+    
+        Parameters params = new Parameters();
+        params.add("batch", "true");
+        params.add("disconnect", Boolean.toString(disconnect));
+        params.add("sync", Boolean.toString(sync));
+
+    
+        termedRequester.exchange("/nodes", DELETE, params, String.class, identifiers, "admin", "user");
+    }
+
+    private void removeTypes(UUID graphId, List<MetaNode> metaNodes) {
+
+        Parameters params = new Parameters();
+        params.add("batch", "true");
+
+        termedRequester.exchange("/graphs/" + graphId + "/types", DELETE, params, String.class, metaNodes);
+    }
+
 
     public void updateAndDeleteInternalNodes(GenericDeleteAndSave deleteAndSave) {
 
@@ -110,6 +156,16 @@ public class MigrationService {
         termedRequester.exchange("/graphs/" + graphId + "/types", POST, params, String.class, metaNodes);
     }
 
+    public void deleteTypes(VocabularyNodeType vocabularyNodeType, String typeName) {
+        findGraphIdsForVocabularyType(vocabularyNodeType)
+                .forEach(graphId -> deleteType(graphId, typeName));
+    }
+
+    public void deleteType(UUID graphId, String  typeName) {
+        System.out.println("DeleteType id:"+graphId.toString()+" type:"+typeName);
+        termedRequester.exchange("/graphs/" + graphId +"/types/"+typeName, DELETE, Parameters.empty(), String.class);
+    }
+   
     public @NotNull List<MetaNode> getTypes(UUID graphId) {
 
         Parameters params = new Parameters();

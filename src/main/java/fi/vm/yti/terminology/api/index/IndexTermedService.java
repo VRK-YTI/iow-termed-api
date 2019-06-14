@@ -1,31 +1,35 @@
 package fi.vm.yti.terminology.api.index;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import fi.vm.yti.terminology.api.TermedRequester;
-import fi.vm.yti.terminology.api.util.JsonUtils;
-import fi.vm.yti.terminology.api.util.Parameters;
-import fi.vm.yti.terminology.api.model.termed.*;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
-import org.springframework.stereotype.Service;
-import org.springframework.core.ParameterizedTypeReference;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 import static fi.vm.yti.terminology.api.util.JsonUtils.asStream;
 import static fi.vm.yti.terminology.api.util.JsonUtils.findSingle;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.springframework.http.HttpMethod.GET;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.stereotype.Service;
+
+import fi.vm.yti.terminology.api.TermedRequester;
+import fi.vm.yti.terminology.api.model.termed.GenericNode;
+import fi.vm.yti.terminology.api.model.termed.Graph;
+import fi.vm.yti.terminology.api.util.Parameters;
+import static fi.vm.yti.terminology.api.model.termed.VocabularyNodeType.TerminologicalVocabulary;
 
 @Service
 public class IndexTermedService {
@@ -58,10 +62,26 @@ public class IndexTermedService {
 
         log.info("Fetching all graph IDs..");
 
+
         return asStream(termedRequester.exchange("/graphs", GET, Parameters.empty(), JsonNode.class))
                 .map(x -> UUID.fromString(x.get("id").textValue()))
                 .collect(toList());
     }
+
+//    @NotNull List<UUID> fetchAllAvailableVocabularyIds() {
+    public List<UUID> getVocabularies() {
+        log.info("Fetching all vocabulary IDs..");
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("where", "type.id:" + TerminologicalVocabulary);
+        params.add("max", "-1");
+
+        return asStream(termedRequester.exchange("/node-trees", GET, Parameters.empty(), JsonNode.class))
+                .map(x -> UUID.fromString(x.get("id").textValue()))
+                .collect(toList());
+    }
+
 
     @NotNull List<UUID> fetchAllAvailableVocabularyGraphIds() {
 
@@ -157,6 +177,7 @@ public class IndexTermedService {
 
     private @Nullable Vocabulary getVocabulary(@NotNull UUID graphId) {
 
+        log.info("getVocabulary id:"+graphId);
 	    JsonNode vocabularyNode = getVocabularyNode(graphId);
 
         if (vocabularyNode != null) {
@@ -178,21 +199,21 @@ public class IndexTermedService {
         }
     }
 
-    public @Nullable JsonNode getTerminologyVocabularyNode(@NotNull UUID graphId) {
+    public @Nullable JsonNode getTerminologyVocabularyNode(@NotNull UUID vocabularyId) {
 
         long start = System.currentTimeMillis();
-        JsonNode json = getFullVocabularyNode(graphId, VocabularyType.TerminologicalVocabulary);
+        JsonNode json = getFullVocabularyNode(vocabularyId, VocabularyType.TerminologicalVocabulary);
         long end = System.currentTimeMillis();
         System.out.println("Vocabulary Search took "+(end-start));
         if (json != null) {
             return json;
         } else {
-            log.info("Vocabulary for graph " + graphId + " was not found as type " + VocabularyType.TerminologicalVocabulary.name() + ". Trying to find as type " + VocabularyType.Vocabulary.name());
-            return getVocabularyNode(graphId, VocabularyType.Vocabulary);
+            log.info("Vocabulary for graph " + vocabularyId + " was not found as type " + VocabularyType.TerminologicalVocabulary.name() + ". Trying to find as type " + VocabularyType.Vocabulary.name());
+            return getVocabularyNode(vocabularyId, VocabularyType.Vocabulary);
         }
     }
 
-    private @Nullable JsonNode getFullVocabularyNode(@NotNull UUID graphId, @NotNull VocabularyType vocabularyType) {
+    private @Nullable JsonNode getFullVocabularyNode(@NotNull UUID vocabularyId, @NotNull VocabularyType vocabularyType) {
 
         Parameters params = new Parameters();
         params.add("select", "*");
@@ -202,12 +223,13 @@ public class IndexTermedService {
         params.add("select", "properties.*");
         params.add("select", "lastModifiedDate");
         */
-        params.add("where", "graph.id:" + graphId);
+        params.add("where", "id:" + vocabularyId);
         params.add("where", "type.id:" + vocabularyType.name());
         params.add("max", "-1");
 
         return findSingle(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
     }
+
     private @Nullable JsonNode getVocabularyNode(@NotNull UUID graphId, @NotNull VocabularyType vocabularyType) {
 
         Parameters params = new Parameters();

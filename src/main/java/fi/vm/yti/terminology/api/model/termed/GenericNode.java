@@ -1,6 +1,9 @@
 package fi.vm.yti.terminology.api.model.termed;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 import java.util.Date;
 import java.util.List;
@@ -19,6 +22,7 @@ public final class GenericNode implements Node {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String uri = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonSerialize(using=ToStringSerializer.class)
     private Long number = null;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -127,14 +131,26 @@ public final class GenericNode implements Node {
         return id;
     }
 
+    public void setId(UUID id) {
+        this.id=id;
+    }
+
     public String getCode() {
         return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
     }
 
     public String getUri() {
         return uri;
     }
 
+    public void setUri(String uri) {
+        this.uri= uri;
+    }
+    
     public Long getNumber() {
         return number;
     }

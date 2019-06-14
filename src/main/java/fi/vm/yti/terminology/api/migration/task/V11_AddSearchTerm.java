@@ -1,20 +1,12 @@
 package fi.vm.yti.terminology.api.migration.task;
 
-import fi.vm.yti.migration.MigrationTask;
-import fi.vm.yti.terminology.api.migration.MigrationService;
-import fi.vm.yti.terminology.api.migration.PropertyUtil;
-import fi.vm.yti.terminology.api.migration.ReferenceIndex;
-import fi.vm.yti.terminology.api.model.termed.MetaNode;
-import fi.vm.yti.terminology.api.model.termed.ReferenceMeta;
-import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
-import fi.vm.yti.terminology.api.model.termed.TypeId;
-
-import fi.vm.yti.terminology.api.migration.DomainIndex;
-
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import fi.vm.yti.migration.MigrationTask;
+import fi.vm.yti.terminology.api.migration.MigrationService;
+import fi.vm.yti.terminology.api.migration.ReferenceIndex;
+import fi.vm.yti.terminology.api.model.termed.MetaNode;
+import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
 
 /**
  * Migration for YTI-1106, classification->information domain and HomographNumber fix."

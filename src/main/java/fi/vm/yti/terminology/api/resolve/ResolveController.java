@@ -4,6 +4,9 @@ import fi.vm.yti.terminology.api.TermedContentType;
 import fi.vm.yti.terminology.api.model.termed.NodeType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +16,7 @@ import java.util.UUID;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 
+import java.net.URI;
 @Controller
 @RequestMapping("/api")
 public class ResolveController {
@@ -21,24 +25,32 @@ public class ResolveController {
     private final String applicationUrl;
 
     @Autowired
-    ResolveController(ResolveService urlResolverService,
-                      @Value("${application.public.url}") String applicationUrl) {
+    ResolveController(ResolveService urlResolverService, @Value("${application.public.url}") String applicationUrl) {
         this.urlResolverService = urlResolverService;
         this.applicationUrl = applicationUrl;
     }
 
     @GetMapping("/resolve")
-    public String resolve(@RequestParam String uri,
-                          @RequestParam(required = false) String format,
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseEntity<String> resolve(@RequestParam String uri, @RequestParam(required = false) String format,
                           @RequestHeader("Accept") String acceptHeader) {
 
+        try {
         ResolvedResource resource = urlResolverService.resolveResource(uri);
         ResolvableContentType contentType = ResolvableContentType.fromString(format, acceptHeader);
-
-        return "redirect:"
-                + applicationUrl
-                + formatPath(resource, contentType)
-                + (contentType.isHandledByFrontend() || StringUtils.isEmpty(format) ? "" : "&format=" + format);
+            // String responseValue = "redirect:" + applicationUrl + formatPath(resource,
+            // contentType)
+            // + (contentType.isHandledByFrontend() || StringUtils.isEmpty(format) ? "" :
+            // "&format=" + format);
+            // return new ResponseEntity<>(responseValue, HttpStatus.OK);
+            String responseValue = applicationUrl + formatPath(resource, contentType)
+                    + (contentType.isHandledByFrontend() || StringUtils.isEmpty(format) ? "" : "&format=" + format);
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.setLocation(new URI(responseValue));
+            return new ResponseEntity<>(httpHeaders, HttpStatus.SEE_OTHER);
+        } catch (Exception ex) {
+            return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 
     private static String formatPath(ResolvedResource resource, ResolvableContentType contentType) {
@@ -70,42 +82,25 @@ public class ResolveController {
 
     @GetMapping("/vocabulary")
     @ResponseBody
-    public String getVocabulary(@RequestParam UUID graphId,
-                                @RequestParam(required = false) String format,
+    public String getVocabulary(@RequestParam UUID graphId, @RequestParam(required = false) String format,
                                 @RequestHeader("Accept") String acceptHeader) {
-        return urlResolverService.getResource(
-                graphId,
-                asList(NodeType.Vocabulary, NodeType.TerminologicalVocabulary),
-                TermedContentType.fromString(format, acceptHeader),
-                null
-        );
+        return urlResolverService.getResource(graphId, asList(NodeType.Vocabulary, NodeType.TerminologicalVocabulary),
+                TermedContentType.fromString(format, acceptHeader), null);
     }
 
     @GetMapping("/concept")
     @ResponseBody
-    public String getConcept(@RequestParam UUID graphId,
-                             @RequestParam UUID id,
-                             @RequestParam(required = false) String format,
-                             @RequestHeader("Accept") String acceptHeader) {
-        return urlResolverService.getResource(
-                graphId,
-                singletonList(NodeType.Concept),
-                TermedContentType.fromString(format, acceptHeader),
-                id
-        );
+    public String getConcept(@RequestParam UUID graphId, @RequestParam UUID id,
+            @RequestParam(required = false) String format, @RequestHeader("Accept") String acceptHeader) {
+        return urlResolverService.getResource(graphId, singletonList(NodeType.Concept),
+                TermedContentType.fromString(format, acceptHeader), id);
     }
 
     @GetMapping("/collection")
     @ResponseBody
-    public String getCollection(@RequestParam UUID graphId,
-                                @RequestParam UUID id,
-                                @RequestParam(required = false) String format,
-                                @RequestHeader("Accept") String acceptHeader) {
-        return urlResolverService.getResource(
-                graphId,
-                singletonList(NodeType.Collection),
-                TermedContentType.fromString(format, acceptHeader),
-                id
-        );
+    public String getCollection(@RequestParam UUID graphId, @RequestParam UUID id,
+            @RequestParam(required = false) String format, @RequestHeader("Accept") String acceptHeader) {
+        return urlResolverService.getResource(graphId, singletonList(NodeType.Collection),
+                TermedContentType.fromString(format, acceptHeader), id);
     }
 }

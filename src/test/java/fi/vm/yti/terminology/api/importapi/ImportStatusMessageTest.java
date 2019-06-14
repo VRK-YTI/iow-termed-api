@@ -31,7 +31,6 @@ public class ImportStatusMessageTest {
 
     @Test
     public void setMessage() {
-        ImportStatusMessage m = new ImportStatusMessage();
         System.out.println("SetMessage");
     }
 

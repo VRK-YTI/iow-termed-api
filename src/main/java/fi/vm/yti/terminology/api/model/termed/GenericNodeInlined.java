@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 
@@ -13,6 +16,7 @@ public final class GenericNodeInlined implements Node {
     private final UUID id;
     private final String code;
     private final String uri;
+    @JsonSerialize(using=ToStringSerializer.class)
     private final Long number;
 
     private final String createdBy;

@@ -1,15 +1,8 @@
 package fi.vm.yti.terminology.api.importapi;
 
-import fi.vm.yti.terminology.api.model.ntrf.VOCABULARY;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jms.annotation.JmsListener;
-import org.springframework.jms.core.JmsMessagingTemplate;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.stereotype.Component;
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.UUID;
 
 import javax.jms.JMSException;
 import javax.jms.Session;
@@ -20,9 +13,18 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
-import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jms.annotation.JmsListener;
+import org.springframework.jms.core.JmsMessagingTemplate;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.stereotype.Component;
+
+import fi.vm.yti.terminology.api.model.ntrf.VOCABULARY;
 
 @Component
 public class ImportJmsListener {
@@ -31,9 +33,6 @@ public class ImportJmsListener {
     // JMS-client
     @Autowired
     private JmsMessagingTemplate jmsMessagingTemplate;
-
-    @Autowired
-    private YtiMQService ytiMQService;
 
     /**
      * Implements actual import operation.
@@ -49,7 +48,7 @@ public class ImportJmsListener {
      */
     @JmsListener(id="NtrfProcessor", destination = "${mq.active.subsystem}Processing")
 	@SendTo("${mq.active.subsystem}Ready")
-	public Message processMessage(final Message message,Session session,
+	public Message<String> processMessage(final Message<String> message,Session session,
                                  @Header String jobtoken,
                                  @Header String userId,
                                  @Header String system,
@@ -92,7 +91,7 @@ public class ImportJmsListener {
         MessageHeaderAccessor accessor = new MessageHeaderAccessor();
         accessor.copyHeaders(message.getHeaders());
         // Set result as a payload and move it to ready-queue1
-        Message mess = MessageBuilder
+        Message<String> mess = MessageBuilder
                 .withPayload(payload)
                 .setHeaders(accessor)
                 .build();

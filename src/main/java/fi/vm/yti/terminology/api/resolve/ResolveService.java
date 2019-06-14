@@ -7,9 +7,12 @@ import fi.vm.yti.terminology.api.exception.VocabularyNotFoundException;
 import fi.vm.yti.terminology.api.model.termed.GenericNode;
 import fi.vm.yti.terminology.api.model.termed.Graph;
 import fi.vm.yti.terminology.api.model.termed.NodeType;
+import fi.vm.yti.terminology.api.resolve.ResolvedResource.Type;
 import fi.vm.yti.terminology.api.util.Parameters;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -26,7 +29,7 @@ import static org.springframework.http.HttpMethod.GET;
 
 @Service
 public class ResolveService {
-
+    private static final Logger logger = LoggerFactory.getLogger(ResolveService.class);
     private final TermedRequester termedRequester;
     private final String namespaceRoot;
 
@@ -43,6 +46,7 @@ public class ResolveService {
     ResolvedResource resolveResource(String uri) {
 
         if (!uri.startsWith(namespaceRoot)) {
+            logger.error("Unsupported URI namespace URI: " + uri);
             throw new RuntimeException("Unsupported URI namespace: " + uri);
         }
 
@@ -77,11 +81,13 @@ public class ResolveService {
                 if (collectionId != null) {
                     return new ResolvedResource(graphId, ResolvedResource.Type.COLLECTION, collectionId);
                 } else {
+                    logger.error("Resource not found URI: " + uri);
                     throw new ResourceNotFoundException(prefix, resource);
                 }
             }
         }
 
+        logger.error("Unsupported URI: " + uri);
         throw new RuntimeException("Unsupported URI: " + uri);
     }
 

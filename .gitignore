@@ -10,3 +10,4 @@ out
 /src/main/resources/config/application-local.properties
 .project
 bin
+*~

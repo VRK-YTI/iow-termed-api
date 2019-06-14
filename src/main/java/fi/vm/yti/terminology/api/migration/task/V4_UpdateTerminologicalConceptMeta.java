@@ -1,13 +1,13 @@
 package fi.vm.yti.terminology.api.migration.task;
 
+import org.springframework.stereotype.Component;
+
 import fi.vm.yti.migration.MigrationTask;
 import fi.vm.yti.terminology.api.migration.AttributeIndex;
 import fi.vm.yti.terminology.api.migration.MigrationService;
-import fi.vm.yti.terminology.api.migration.ReferenceIndex;
 import fi.vm.yti.terminology.api.model.termed.NodeType;
 import fi.vm.yti.terminology.api.model.termed.TypeId;
 import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
-import org.springframework.stereotype.Component;
 
 @Component
 public class V4_UpdateTerminologicalConceptMeta implements MigrationTask {

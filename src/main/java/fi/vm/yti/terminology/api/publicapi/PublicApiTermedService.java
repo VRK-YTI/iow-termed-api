@@ -34,6 +34,7 @@ public class PublicApiTermedService {
     @NotNull List<PublicApiVocabulary> getVocabularyList() {
         Parameters params = new Parameters();
         params.add("select", "id");
+        params.add("select", "uri");
         params.add("select", "code");
         params.add("select", "properties.prefLabel");
         params.add("select", "properties.status");
@@ -56,6 +57,8 @@ public class PublicApiTermedService {
             for (GenericNode genericNode: vocabsFromNodeTrees) {
                     PublicApiVocabulary vocabulary = new PublicApiVocabulary();
                     vocabulary.setId(genericNode.getType().getGraphId());
+                    vocabulary.setUri(genericNode.getUri());
+
                     vocabulary.setPrefLabel(prefLabelAsLocalizable(genericNode));
                     vocabulary.setStatus(getStatus(genericNode));
                     if (!codesAlreadyAdded.contains(genericNode.getType().getGraphId().toString())) {

@@ -5,6 +5,7 @@ import fi.vm.yti.terminology.api.migration.PropertyUtil;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static fi.vm.yti.terminology.api.migration.PropertyUtil.prefLabel;
@@ -83,6 +84,16 @@ public final class MetaNode {
                 .filter(x -> x.getId().equals(name))
                 .findAny()
                 .orElseThrow(() -> new RuntimeException("Attribute not found with name: " + name));
+    }
+
+    public boolean attributeExist(String name) {
+        boolean rv = false;
+        Optional<AttributeMeta> o = textAttributes.stream()
+                .filter(x -> x.getId().equals(name))
+                .findAny();
+        if(o.isPresent())
+            rv = true;
+        return rv;
     }
 
     public void addAttribute(AttributeMeta attributeToAdd) {

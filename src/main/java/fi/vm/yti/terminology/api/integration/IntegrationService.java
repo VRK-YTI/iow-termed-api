@@ -38,8 +38,6 @@ public class IntegrationService {
     private final FrontendTermedService termedService;
     private final IndexElasticSearchService elasticSearchService;
     private final AuthenticatedUserProvider userProvider;
-    private final AuthorizationManager authorizationManager;
-    private final String namespaceRoot;
     /**
      * Map containing metadata types. used when creating nodes.
      */
@@ -48,18 +46,15 @@ public class IntegrationService {
     @Autowired
     public IntegrationService(TermedRequester termedRequester, FrontendGroupManagementService groupManagementService,
             FrontendTermedService frontendTermedService, IndexElasticSearchService elasticSearchService,
-            AuthenticatedUserProvider userProvider, AuthorizationManager authorizationManager,
-            @Value("${namespace.root}") String namespaceRoot) {
+            AuthenticatedUserProvider userProvider) {
         this.termedRequester = termedRequester;
         this.groupManagementService = groupManagementService;
         this.termedService = frontendTermedService;
         this.elasticSearchService = elasticSearchService;
         this.userProvider = userProvider;
-        this.authorizationManager = authorizationManager;
-        this.namespaceRoot = namespaceRoot;
     }
 
-    ResponseEntity handleContainers(String language, int pageSize, int from, String statusEnum, String after,
+    ResponseEntity<String> handleContainers(String language, int pageSize, int from, String statusEnum, String after,
             boolean includeMeta) {
         if (logger.isDebugEnabled())
             logger.debug("GET /containers requested. status=" + statusEnum);
@@ -67,20 +62,13 @@ public class IntegrationService {
         // Response item list
         List<ContainersResponse> resp = new ArrayList<>();
         /**
-         * Elastic query, returns 10k results from index
-         * { "query" : { "match_all" : {} },
-         * "_source":["id","properties.prefLabel","properties.description","modified",
-         * "status","uri"]
-         * 
-         * }
+         * Elastic query, returns 10k results from index and filter out items without URI
          */
-        String query = "{\"query\": { \"match_all\":{} },\"size\":\"10000\", \"_source\":[\"id\",\"properties.prefLabel\",\"properties.description\",\"lastModifiedDate\", \"properties.status\",\"uri\"]}";
-
+        String query="{ \"query\" : {\"bool\":{\"must\": {\"match_all\" : {}},\"filter\": {\"exists\": { \"field\": \"uri\"} }}},\"size\":\"10000\",\"_source\":[\"id\",\"properties.prefLabel\",\"properties.description\",\"lastModifiedDate\",\"properties.status\",\"uri\"]}";
         if(logger.isDebugEnabled()){
             logger.debug("HandleVocabularies() query=" + query);
         }
         JsonNode result = elasticSearchService.freeSearchFromIndex(query, "vocabularies");
-//        JsonUtils.prettyPrintJson(result);
         JsonNode nodes = result.get("hits");
         if (nodes != null) {
             nodes = nodes.get("hits");
@@ -174,7 +162,7 @@ public class IntegrationService {
         return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(resp), HttpStatus.OK);
     }
 
-    ResponseEntity handleResources(String url) {
+    ResponseEntity<String> handleResources(String url) {
         if (logger.isDebugEnabled())
             logger.debug("GET /resources requested. URL=" + url);
 
@@ -188,17 +176,31 @@ public class IntegrationService {
         if (id == null) {
             return new ResponseEntity<>("{}", HttpStatus.NOT_FOUND);
         }
-        // Id resolved, fetch vocabulary
+        // Id resolved, fetch vocabulary and filter out  vocabularies without URI
         /**
          * Elastic query, returns 10k results from index
          * 
-         * {"query": { "bool":{ "must":{ "match": {
-         * "vocabulary.id":"d8fe18f2-0a76-4eb4-a2fe-4bf88476a245" } } } },
-         * "size":"10000", "_source":["id","label","definition","modified", "status"] }
+         * {
+         *     "query" : {
+         *     	"bool":{
+         *     		"must": {
+         * 	            "match":  {
+         * 	            	"vocabulary.id":"cd8fed1b-7f1c-4e2d-b307-a7662286f713"
+         * 	            }
+         *     		},
+         *     		"filter": {
+         *     			"exists": { "field": "uri"} 
+         *     		}
+         *     	}
+         *     },
+         *     "size":"10000",
+         *     "_source":["id","properties.prefLabel","properties.description","lastModifiedDate","properties.status","uri"]
+         * }
+         * 
+         * GET /_search
          */
-
         String query = "{\"query\": { \"bool\":{ \"must\":{ \"match\": { \"vocabulary.id\":\"" + id
-                + "\" } } } },\"size\":\"10000\", \"_source\":[\"id\",\"label\",\"definition\",\"modified\", \"status\",\"uri\"]}";
+                + "\" } },\"filter\": {\"exists\": {\"field\": \"uri\"}}}},\"size\":\"10000\", \"_source\":[\"id\",\"label\",\"definition\",\"modified\", \"status\",\"uri\"]}";
 
         JsonNode result = elasticSearchService.freeSearchFromIndex(query);
         // Response item list
@@ -291,7 +293,7 @@ public class IntegrationService {
      * @param vocabularityId
      * @return
      */
-    ResponseEntity handleConceptSuggestion(String vocabularityId, ConceptSuggestion incomingConcept) {
+    ResponseEntity<String> handleConceptSuggestion(String vocabularityId, ConceptSuggestion incomingConcept) {
         if (logger.isDebugEnabled())
             logger.debug("POST /vocabulary/{vocabularyId}/concept requested. creating Concept for "
                     + JsonUtils.prettyPrintJsonAsString(incomingConcept));
@@ -365,7 +367,6 @@ public class IntegrationService {
     private GenericNode CreateTerm(GenericNodeInlined vocabulary, ConceptSuggestion incoming,
             Map<String, List<Identifier>> parentReferences) {
         GenericNode node = null;
-        UUID termId = UUID.randomUUID();
         // Populate term
         Map<String, List<Attribute>> properties = new HashMap<>();
         addProperty("prefLabel", properties, incoming.getPrefLabel());

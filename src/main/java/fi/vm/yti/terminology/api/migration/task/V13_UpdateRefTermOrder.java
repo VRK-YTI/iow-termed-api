@@ -1,29 +1,17 @@
 package fi.vm.yti.terminology.api.migration.task;
 
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
 import fi.vm.yti.migration.MigrationTask;
 import fi.vm.yti.terminology.api.migration.MigrationService;
-import fi.vm.yti.terminology.api.migration.PropertyUtil;
-import fi.vm.yti.terminology.api.migration.ReferenceIndex;
 import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import fi.vm.yti.terminology.api.model.termed.ReferenceMeta;
 import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
-import fi.vm.yti.terminology.api.model.termed.TypeId;
-import fi.vm.yti.terminology.api.model.termed.Property;
-import fi.vm.yti.terminology.api.model.termed.AttributeMeta;
-import fi.vm.yti.terminology.api.model.termed.NodeType;
-
-import fi.vm.yti.terminology.api.migration.DomainIndex;
-import fi.vm.yti.terminology.api.migration.AttributeIndex;
-
-import org.springframework.security.web.util.matcher.OrRequestMatcher;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.LinkedList;
-import java.util.stream.Collectors;
 
 /**
  * Migration for YTI-1106, classification->information domain and HomographNumber fix."

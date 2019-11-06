@@ -548,6 +548,24 @@ public final class AttributeIndex {
     }
 
     @NotNull
+    public static AttributeMeta contact(TypeId domain, long index) {
+        return new AttributeMeta(
+                "contact",
+                "http://uri.suomi.fi/datamodel/ns/st#contact",
+                index,
+                domain,
+                emptyMap(),
+                merge(
+                        PropertyUtil.prefLabel(
+                                "Yhteydenotto",
+                                "Contact"
+                        ),
+                        type("string:single,area")
+                )
+        );
+    }
+    
+    @NotNull
     public static AttributeMeta usedInScheme(TypeId domain, long index) {
         return new AttributeMeta(
                 "usedInScheme",
@@ -580,7 +598,7 @@ public final class AttributeIndex {
                 )
         );
     }
-
+    
     // prevent construction
     private AttributeIndex() {
     }

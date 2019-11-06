@@ -3,27 +3,28 @@ package fi.vm.yti.terminology.api.index;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import fi.vm.yti.terminology.api.exception.ElasticEndpointException;
-import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import fi.vm.yti.terminology.api.exception.ElasticEndpointException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
-
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RequestOptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import static org.springframework.http.HttpMethod.GET;
 
 import javax.annotation.PreDestroy;
 import java.io.*;
@@ -49,6 +50,8 @@ public class IndexElasticSearchService {
     private static final Logger log = LoggerFactory.getLogger(IndexElasticSearchService.class);
 
     private final RestClient esRestClient;
+    private final RestHighLevelClient esHiLvClient;
+
     private final String createIndexFilename;
     private final String createMappingsFilename;
     private final String indexName;
@@ -58,11 +61,7 @@ public class IndexElasticSearchService {
     private final boolean deleteIndexOnAppRestart;
 
     private final IndexTermedService termedApiService;
-    private final FrontendTermedService terminologyAPI;
     private final ObjectMapper objectMapper;
-
-    private static final String TERMINOLOGY_ROOT = "TerminologyRoot";
-    private UUID TERMINOLOGY_ROOT_ID = null;
 
     @Autowired
     public IndexElasticSearchService(@Value("${search.host.url}") String searchHostUrl,
@@ -72,7 +71,7 @@ public class IndexElasticSearchService {
             @Value("${search.index.name}") String indexName,
             @Value("${search.index.mapping.type}") String indexMappingType,
             @Value("${search.index.deleteIndexOnAppRestart}") boolean deleteIndexOnAppRestart,
-            IndexTermedService termedApiService, ObjectMapper objectMapper, FrontendTermedService terminologyAPI) {
+            IndexTermedService termedApiService, ObjectMapper objectMapper, final RestHighLevelClient esHiLvClient) {
         this.createIndexFilename = createIndexFilename;
         this.createMappingsFilename = createMappingsFilename;
         this.indexName = indexName;
@@ -80,8 +79,8 @@ public class IndexElasticSearchService {
         this.deleteIndexOnAppRestart = deleteIndexOnAppRestart;
         this.termedApiService = termedApiService;
         this.objectMapper = objectMapper;
-        this.terminologyAPI = terminologyAPI; // get_root_graph is implemented here
         this.esRestClient = RestClient.builder(new HttpHost(searchHostUrl, searchHostPort, searchHostScheme)).build();
+        this.esHiLvClient = esHiLvClient; // Use that for resource api
     }
 
     public void initIndex() {
@@ -114,40 +113,38 @@ public class IndexElasticSearchService {
         log.info("Starting reindexing task..");
         // Clean vocabularies
         deleteAllDocumentsFromNamedIndex("vocabularies");
-        deleteAllDocumentsFromIndex();
-        doFullIndexing();
+        this.deleteAllDocumentsFromIndex();
+        this.doFullIndexing();
         log.info("Finished reindexing!");
     }
 
     private void doFullIndexing() {
         reindexVocabularies();
         // Index concepts from all vocabularies
-       terminologyAPI.getVocabularies().forEach(vocabularyId -> reindexVocabulary(vocabularyId, false));
-
-//        termedApiService.fetchAllAvailableGraphIds().forEach(graphId -> reindexGraph(graphId, false));
+        termedApiService.fetchAllAvailableGraphIds().forEach(graphId -> reindexGraph(graphId, false));
     }
 
     private void reindexVocabularies() {
         // Index vocabularies
         long start = System.currentTimeMillis();
         // index also all vocabulary-objects
-        // Get all terminolical vocabularies
-        List<UUID> vocabularyIDList = terminologyAPI.getVocabularies();
-
         List<JsonNode> vocabularies = new ArrayList<>();
-        vocabularyIDList.forEach(o -> {
+        // Get graphs
+        List<UUID> graphs = termedApiService.fetchAllAvailableVocabularyGraphIds();
+        // Get vocabularies under graphs
+        graphs.forEach(o -> {
             JsonNode jn = termedApiService.getTerminologyVocabularyNode(o);
+
+            // resolve organization info from references.contributor
             if (jn != null) {
                 vocabularies.add(jn);
             }
         });
-
         long end = System.currentTimeMillis();
-        log.info("Vocabulary Search took " + (end - start)+"s");
-        if (vocabularyIDList.isEmpty()) {
+        log.info("Vocabulary Search took " + (end - start));
+        if (vocabularies.isEmpty()) {
             return; // Nothing to do
         }
-
         ObjectMapper mapper = new ObjectMapper();
         List<String> indexLines = new ArrayList<>();
         vocabularies.forEach(o -> {
@@ -168,6 +165,8 @@ public class IndexElasticSearchService {
         // Content type changed for elastic search 6.x
         HttpEntity entity = new NStringEntity(index + delete,
                 ContentType.create("application/json", StandardCharsets.UTF_8));
+        // ContentType.create("application/json", StandardCharsets.UTF_8));
+        // ContentType.create("application/x-ndjson", StandardCharsets.UTF_8));
         Map<String, String> params = new HashMap<>();
         params.put("pretty", "true");
         params.put("refresh", "wait_for");
@@ -175,7 +174,6 @@ public class IndexElasticSearchService {
             log.debug("Request:" + entity);
         }
         Response response = alsoUnsuccessful(() -> esRestClient.performRequest("POST", "/_bulk", params, entity));
-        System.out.println("reindexVocabularies done resp="+response.getStatusLine());
         if (log.isDebugEnabled()) {
             log.debug("Response:" + response + "\n Response status line" + response.getStatusLine());
         }
@@ -192,6 +190,11 @@ public class IndexElasticSearchService {
         boolean rv = true;
         // Get vocabulary
         JsonNode jn = termedApiService.getTerminologyVocabularyNode(vocId);
+        if (jn == null) {
+            log.warn("Missing vocabulary during elasticsearch reindexing  :" + vocId.toString());
+            return false;
+        }
+
         ObjectMapper mapper = new ObjectMapper();
         try {
             String index = "{\"index\":{\"_index\": \"vocabularies\", \"_type\": \"" + "vocabulary" + "\", \"_id\":"
@@ -199,9 +202,7 @@ public class IndexElasticSearchService {
             String delete = "";
             // CHANGED CONTENT TYPE FOR ELASTIC 6.X
             HttpEntity entity = new NStringEntity(index + delete,
-                    // ContentType.create("application/x-ndjson"));
                     ContentType.create("application/json", StandardCharsets.UTF_8));
-            // ContentType.create("application/x-ndjson", StandardCharsets.UTF_8));
             Map<String, String> params = new HashMap<>();
 
             params.put("pretty", "true");
@@ -228,7 +229,7 @@ public class IndexElasticSearchService {
 
         int fullReindexNodeCountThreshold = 20;
         if (log.isDebugEnabled()) {
-            log.debug("updateIndexAfterUpdate()" + nodes.toString() + " hasVocabulary:" + nodes.hasVocabulary());
+            log.debug("updateIndexAfterUpdate() " + nodes.toString() + " hasVocabulary:" + nodes.hasVocabulary());
         }
         UUID voc = nodes.getGraphId();
         if (log.isDebugEnabled()) {
@@ -251,8 +252,7 @@ public class IndexElasticSearchService {
             }
         }
         if (nodes.hasVocabulary() || nodes.getConceptsIds().size() > fullReindexNodeCountThreshold) {
-            reindexVocabulary(nodes.getGraphId(), true);
-//            reindexGraph(nodes.getGraphId(), true);
+            reindexGraph(nodes.getGraphId(), true);
         } else {
             List<Concept> updatedConcepts = termedApiService.getConcepts(nodes.getGraphId(), nodes.getConceptsIds());
             List<Concept> conceptsBeforeUpdate = getConceptsFromIndex(nodes.getGraphId(), nodes.getConceptsIds());
@@ -298,21 +298,11 @@ public class IndexElasticSearchService {
                 .flatMap(concept -> Stream.concat(concept.getBroaderIds().stream(), concept.getNarrowerIds().stream()))
                 .collect(Collectors.toSet());
     }
-/*
+
     private void reindexGraph(@NotNull UUID graphId, boolean waitForRefresh) {
         log.info("Trying to index concepts of graph " + graphId);
-
         List<Concept> concepts = termedApiService.getAllConceptsForGraph(graphId);
         bulkUpdateAndDeleteDocumentsToIndex(graphId, concepts, emptyList(), waitForRefresh);
-        log.info("Indexed " + concepts.size() + " concepts");
-    }
-*/
-    private void reindexVocabulary(@NotNull UUID vocabularyId, boolean waitForRefresh) {
-
-        log.info("Trying to index concepts of vocabulary " + vocabularyId);
-
-        List<Concept> concepts = termedApiService.getAllConceptsForGraph(vocabularyId);
-        bulkUpdateAndDeleteDocumentsToIndex(vocabularyId, concepts, emptyList(), waitForRefresh);
         log.info("Indexed " + concepts.size() + " concepts");
     }
 
@@ -431,11 +421,11 @@ public class IndexElasticSearchService {
         Response response = alsoUnsuccessful(() -> esRestClient.performRequest("POST", "/_bulk", params, entity));
 
         if (isSuccess(response)) {
-            log.info("Successfully added/updated documents to elasticsearch index: " + updateConcepts.size());
-            log.info("Successfully deleted documents from elasticsearch index: " + deleteConceptsIds.size());
+            log.info("Successfully added/updated concepts documents to elasticsearch index: " + updateConcepts.size());
+            log.info("Successfully deleted concepts  documents from elasticsearch index: " + deleteConceptsIds.size());
         } else {
-            log.warn("Unable to add or update document to elasticsearch index: " + updateConcepts.size());
-            log.warn("Unable to delete document from elasticsearch index: " + deleteConceptsIds.size());
+            log.warn("Unable to add or update concepts document to elasticsearch index: " + updateConcepts.size());
+            log.warn("Unable to delete concepts document from elasticsearch index: " + deleteConceptsIds.size());
         }
     }
 
@@ -525,6 +515,31 @@ public class IndexElasticSearchService {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public @Nullable JsonNode freeSearchFromIndex(SearchRequest sr) {
+        final SearchResponse response;
+        JsonNode obj = null;
+        try {
+            response = esHiLvClient.search(sr, RequestOptions.DEFAULT);
+            if (log.isDebugEnabled()) {
+                log.debug("Search result count=" + response.getHits().getTotalHits());
+            }
+            // setResultCounts(meta, response);
+            // String -> JSON
+            obj = objectMapper.readTree(response.toString());
+            /*
+             * response.getHits().forEach(hit -> { try { String resp =
+             * hit.getSourceAsString(); // String -> JSON obj = objectMapper.readTree(resp);
+             * } catch (final IOException e) {
+             * log.error("getContainers reading value from JSON string failed: " +
+             * hit.getSourceAsString(), e); throw new RuntimeException(e); } });
+             */
+        } catch (final IOException e) {
+            log.error("SearchRequest failed!", e);
+            throw new RuntimeException(e);
+        }
+        return obj;
     }
 
     public @Nullable JsonNode freeSearchFromIndex(String query, String indexName) {

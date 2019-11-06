@@ -58,8 +58,6 @@ public class V13_UpdateRefTermOrder implements MigrationTask {
 
         String domainName=meta.getDomain().getId().name();
         if(domainName.equals("Concept")){
-            // ReferenceAttributes
-            List<ReferenceMeta>  ra=meta.getReferenceAttributes();            
             // Change item order
             changeRefOrder(meta);
         }
@@ -67,7 +65,7 @@ public class V13_UpdateRefTermOrder implements MigrationTask {
     }
 
     void changeRefOrder(MetaNode meta){
-
+        // ReferenceAttributes
         List<ReferenceMeta>  ra=meta.getReferenceAttributes();
         Map<String, ReferenceMeta> raMap = new LinkedHashMap<>();
         List<ReferenceMeta>  ordered = new LinkedList<>();

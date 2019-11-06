@@ -1,6 +1,9 @@
 package fi.vm.yti.terminology.api.model.termed;
 
-import fi.vm.yti.terminology.api.migration.PropertyUtil;
+import static fi.vm.yti.terminology.api.migration.PropertyUtil.prefLabel;
+import static fi.vm.yti.terminology.api.util.CollectionUtils.mapToList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 import java.util.Comparator;
 import java.util.List;
@@ -8,11 +11,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static fi.vm.yti.terminology.api.migration.PropertyUtil.prefLabel;
-import static fi.vm.yti.terminology.api.util.CollectionUtils.mapToList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import fi.vm.yti.terminology.api.migration.PropertyUtil;
+
+@JsonIgnoreProperties(ignoreUnknown=true)
 public final class MetaNode {
 
     private final String id;

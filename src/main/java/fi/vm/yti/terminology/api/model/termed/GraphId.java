@@ -6,7 +6,7 @@ import static java.util.UUID.randomUUID;
 
 public final class GraphId {
 
-    private final UUID id;
+    private  UUID id;
 
     // Jackson constructor
     private GraphId() {
@@ -23,6 +23,10 @@ public final class GraphId {
 
     public UUID getId() {
         return id;
+    }
+
+    public void  setId(UUID id) {
+        this.id = id;
     }
 
     @Override

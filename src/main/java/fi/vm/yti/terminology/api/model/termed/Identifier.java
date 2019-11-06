@@ -1,17 +1,28 @@
 package fi.vm.yti.terminology.api.model.termed;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.Objects;
 import java.util.UUID;
 
 import static java.util.UUID.randomUUID;
 
-@JsonIgnoreProperties(value = { "properties", "references", "referrers" })
+import java.util.List;
+import java.util.Map;
+
+import static com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+//@JsonIgnoreProperties(value = { "properties", "references", "referrers" })
+@JsonIgnoreProperties(ignoreUnknown=true)
+@JsonInclude(Include.NON_NULL)
 public final class Identifier {
 
     private final UUID id;
     private final TypeId type;
+    private String uri = null;;
+    private String code = null;
+    private  Map<String, List<Attribute>> properties;
 
     // Jackson constructor
     private Identifier() {
@@ -44,4 +55,46 @@ public final class Identifier {
     public int hashCode() {
         return Objects.hash(id, type);
     }
+
+    public String getUri() {
+        return uri;
+    }
+
+    /**
+     * @param uri the uri to set
+     */
+    public void setUri(String uri) {
+        this.uri = uri;
+    }
+
+
+    /**
+     * @return String return the code
+     */
+    public String getCode() {
+        return code;
+    }
+
+    /**
+     * @param code the code to set
+     */
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+
+    /**
+     * @return Map<String, List<Attribute>> return the properties
+     */
+    public Map<String, List<Attribute>> getProperties() {
+        return properties;
+    }
+
+    /**
+     * @param properties the properties to set
+     */
+    public void setProperties(Map<String, List<Attribute>> properties) {
+        this.properties = properties;
+    }
+
 }

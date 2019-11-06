@@ -2,16 +2,21 @@ package fi.vm.yti.terminology.api.model.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import fi.vm.yti.terminology.api.model.termed.Attribute;
+
 import static org.junit.Assert.*;
 
-public class ConceptSuggestionTest {
-   String jsonString="{\"prefLabel\":{\"lang\":\"fi\",\"value\":\"esimerkki\"},\"definition\":{\"lang\":\"fi\",\"value\":\"jotain\"},\"creator\":\"45778009-804c-4aba-a836-f5c911ea5ef1\",\"vocabulary\":\"55778009-804c-4aba-a836-f5c911ea5ef1\",\"uri\":\"http://uri.suomi.fi/terminology/kira/\"}";
+import java.util.Date;
 
-    private ConceptSuggestion cs =null;
+public class ConceptSuggestionTest {
+   String jsonString="{\"prefLabel\":{\"lang\":\"fi\",\"value\":\"esimerkki\"},\"definition\":{\"lang\":\"fi\",\"value\":\"jotain\"},\"creator\":\"45778009-804c-4aba-a836-f5c911ea5ef1\",\"terminologyUri\":\"http://uri.suomi.fi/terminology/kira/\",\"uri\":\"http://uri.suomi.fi/terminology/kira/\", \"created\":\"2019-09-17T09:54:30.139\"}";
+
+    private ConceptSuggestionResponse cs =null;
     @org.junit.Before
     public void setUp() throws Exception {
+        System.out.println("incoming"+jsonString);
         ObjectMapper mapper = new ObjectMapper();
-        cs = mapper.readValue(jsonString,ConceptSuggestion.class);
+        cs = mapper.readValue(jsonString,ConceptSuggestionResponse.class);
         assertNotNull(cs);
     }
 
@@ -21,9 +26,7 @@ public class ConceptSuggestionTest {
 
     @org.junit.Test
     public void getPrefLabel() {
-        System.out.println("test getPrefLabel");
         if(cs != null && cs.getPrefLabel() != null ){
-            System.out.println(" PrefLabel="+cs.getPrefLabel().getValue());
             assertEquals("esimerkki",cs.getPrefLabel().getValue());
         }
         else
@@ -34,8 +37,7 @@ public class ConceptSuggestionTest {
     public void getDefinition() {
         System.out.println("test getDefinitionLabel");
         if(cs != null && cs.getDefinition() != null ){
-            System.out.println(" Definition value="+cs.getDefinition().getValue());
-            assertEquals("esimerkki",cs.getPrefLabel().getValue());
+            assertEquals("jotain",cs.getDefinition().getValue());
         }
         else
             fail("GetDefinition test Failed");
@@ -43,9 +45,7 @@ public class ConceptSuggestionTest {
 
     @org.junit.Test
     public void getCreator() {
-        System.out.println("test getCreator UUID");
         if(cs != null && cs.getCreator() != null ){
-            System.out.println(" Creator UUID value="+cs.getCreator().toString());
             assertEquals("45778009-804c-4aba-a836-f5c911ea5ef1",cs.getCreator().toString());
         }
         else
@@ -53,24 +53,31 @@ public class ConceptSuggestionTest {
     }
 
     @org.junit.Test
-    public void getVocabulary() {
-        if(cs != null && cs.getVocabulary() != null ){
-            System.out.println(" Vocabularity UUID value="+cs.getVocabulary().toString());
-            assertEquals("55778009-804c-4aba-a836-f5c911ea5ef1",cs.getVocabulary().toString());
+    public void getterminologyUri() {
+        if(cs != null && cs.getTerminologyUri() != null ){
+            assertEquals("http://uri.suomi.fi/terminology/kira/",cs.getTerminologyUri());
         }
         else
-            fail("GetVocabulary test Failed");
+            fail("GetTerminologyUri test Failed");
     }
 
     @org.junit.Test
     public void getUri() {
         String expected="http://uri.suomi.fi/terminology/kira/";
-        System.out.println("test getUri");
-        if(cs != null && cs.getUri() != null ){
-            System.out.println(" Uri value="+cs.getUri());
-            assertEquals(expected,cs.getUri());
+        if(cs != null && cs.getTerminologyUri() != null ){
+            assertEquals(expected,cs.getTerminologyUri());
         }
         else
             fail("GetUri test Failed");
     }
+    @org.junit.Test
+    public void getCreated() {
+        String expected="http://uri.suomi.fi/terminology/kira/";
+        if(cs != null && cs.getTerminologyUri() != null ){
+            assertEquals(expected,cs.getTerminologyUri());
+        }
+        else
+            fail("GetUri test Failed");
+    }
+
 }

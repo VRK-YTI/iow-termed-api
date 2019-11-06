@@ -1,21 +1,35 @@
 package fi.vm.yti.terminology.api.frontend;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import fi.vm.yti.security.AuthenticatedUserProvider;
-import fi.vm.yti.security.YtiUser;
-import fi.vm.yti.terminology.api.frontend.searchdto.TerminologySearchRequest;
-import fi.vm.yti.terminology.api.frontend.searchdto.TerminologySearchResponse;
-import fi.vm.yti.terminology.api.model.termed.*;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import fi.vm.yti.security.AuthenticatedUserProvider;
+import fi.vm.yti.security.YtiUser;
+import fi.vm.yti.terminology.api.frontend.searchdto.ConceptSearchRequest;
+import fi.vm.yti.terminology.api.frontend.searchdto.ConceptSearchResponse;
+import fi.vm.yti.terminology.api.frontend.searchdto.TerminologySearchRequest;
+import fi.vm.yti.terminology.api.frontend.searchdto.TerminologySearchResponse;
+import fi.vm.yti.terminology.api.model.termed.GenericDeleteAndSave;
+import fi.vm.yti.terminology.api.model.termed.GenericNode;
+import fi.vm.yti.terminology.api.model.termed.GenericNodeInlined;
+import fi.vm.yti.terminology.api.model.termed.Graph;
+import fi.vm.yti.terminology.api.model.termed.Identifier;
+import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Group;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Organization;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -29,6 +43,7 @@ public class FrontendController {
     private final FrontendElasticSearchService elasticSearchService;
     private final FrontendGroupManagementService groupManagementService;
     private final AuthenticatedUserProvider userProvider;
+    private final ObjectMapper objectMapper;
     private final String namespaceRoot;
     private final String groupManagementUrl;
     private final boolean fakeLoginAllowed;
@@ -40,6 +55,7 @@ public class FrontendController {
     public FrontendController(FrontendTermedService termedService,
                               FrontendElasticSearchService elasticSearchService,
                               FrontendGroupManagementService groupManagementService,
+                              ObjectMapper objectMapper,
                               AuthenticatedUserProvider userProvider,
                               @Value("${namespace.root}") String namespaceRoot,
                               @Value("${groupmanagement.public.url}") String groupManagementUrl,
@@ -50,6 +66,7 @@ public class FrontendController {
         this.elasticSearchService = elasticSearchService;
         this.groupManagementService = groupManagementService;
         this.userProvider = userProvider;
+        this.objectMapper = objectMapper;
         this.namespaceRoot = namespaceRoot;
         this.groupManagementUrl = groupManagementUrl;
         this.fakeLoginAllowed = fakeLoginAllowed;
@@ -111,8 +128,8 @@ public class FrontendController {
     }
 
     @RequestMapping(value = "/vocabularies", method = GET, produces = APPLICATION_JSON_VALUE)
-    JsonNode getVocabularyList( @RequestParam(required = false, defaultValue = "true") boolean incomplete) {
-        logger.info("GET /vocabularies requested incomplete="+incomplete);
+    JsonNode getVocabularyList(@RequestParam(required = false, defaultValue = "true") boolean incomplete) {
+        logger.info("GET /vocabularies requested incomplete=" + incomplete);
         return termedService.getVocabularyList(incomplete);
     }
 
@@ -131,7 +148,7 @@ public class FrontendController {
             termedService.createVocabulary(templateGraphId, prefix, vocabularyNode, predefinedOrGeneratedGraphId, sync);
             logger.debug("Vocabulary with prefix \"" + prefix + "\" created");
             return predefinedOrGeneratedGraphId;
-        } catch(RuntimeException|Error e) {
+        } catch (RuntimeException | Error e) {
             logger.error("createVocabuluary failed", e);
             throw e;
         } finally {
@@ -225,10 +242,29 @@ public class FrontendController {
         return termedService.getGraph(graphId);
     }
 
+    // TODO: Remove this and re-map the Ng variant.
     @RequestMapping(value = "/searchConcept", method = POST, produces = APPLICATION_JSON_VALUE)
     String searchConcept(@RequestBody JsonNode query) {
         logger.info("POST /searchConcept requested with query: " + query.toString());
-        return elasticSearchService.searchConcept(query);
+        JsonNode esQuery = query.get("query");
+        if (esQuery != null && esQuery.isObject()) {
+            return elasticSearchService.searchConcept(query);
+        }
+        try {
+            ConceptSearchRequest csr = objectMapper.readValue(query.toString(), ConceptSearchRequest.class);
+            return objectMapper.writeValueAsString(elasticSearchService.searchConcept(csr));
+        } catch (Exception e) {
+            logger.error("Concept search failed", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    // TODO: Re-map this to /searchConcept when the original ES proxy functionality is removed.
+    @RequestMapping(value = "/searchConceptNg", method = POST, produces = APPLICATION_JSON_VALUE)
+    @ResponseBody
+    ConceptSearchResponse searchConceptNg(@RequestBody ConceptSearchRequest request) {
+        logger.info("POST /searchConcept requested with query: " + request.toString());
+        return elasticSearchService.searchConcept(request);
     }
 
     @RequestMapping(value = "/searchTerminology", method = POST, produces = APPLICATION_JSON_VALUE)
@@ -245,7 +281,9 @@ public class FrontendController {
         Configuration conf = new Configuration();
         conf.codeListUrl = this.serviceUrls.getCodeListUrl();
         conf.dataModelUrl = this.serviceUrls.getDataModelUrl();
+        conf.commentsUrl = this.serviceUrls.getCommentsUrl();
         conf.groupmanagementUrl = this.serviceUrls.getGroupManagementUrl();
+        conf.messagingEnabled = this.serviceUrls.getMessagingEnabled();
         conf.env = this.serviceUrls.getEnv();
         conf.restrictFilterOptions = this.restrictFilterOptions;
 

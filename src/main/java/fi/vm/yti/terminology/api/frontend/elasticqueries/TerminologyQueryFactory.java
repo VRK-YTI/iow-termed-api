@@ -3,21 +3,21 @@ package fi.vm.yti.terminology.api.frontend.elasticqueries;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.index.query.MatchPhrasePrefixQueryBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +34,8 @@ import fi.vm.yti.terminology.api.util.ElasticRequestUtils;
 
 public class TerminologyQueryFactory {
 
-    private static final Logger log = LoggerFactory.getLogger(DeepConceptQueryFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(TerminologyQueryFactory.class);
+
     public static final int DEFAULT_PAGE_SIZE = 10;
     public static final int DEFAULT_PAGE_FROM = 0;
 
@@ -44,27 +45,34 @@ public class TerminologyQueryFactory {
         this.objectMapper = objectMapper;
     }
 
-    public SearchRequest createQuery(TerminologySearchRequest request) {
-        return createQuery(request.getQuery(), Collections.EMPTY_SET, pageSize(request), pageFrom(request));
+    public SearchRequest createQuery(TerminologySearchRequest request,
+                                     boolean superUser,
+                                     Set<String> privilegedOrganizations) {
+        return createQuery(request.getQuery(), Collections.EMPTY_SET, pageSize(request), pageFrom(request), superUser, privilegedOrganizations);
     }
 
     public SearchRequest createQuery(TerminologySearchRequest request,
-                                     Collection<String> additionalTerminologyIds) {
-        return createQuery(request.getQuery(), additionalTerminologyIds, pageSize(request), pageFrom(request));
+                                     Collection<String> additionalTerminologyIds,
+                                     boolean superUser,
+                                     Set<String> privilegedOrganizations) {
+        return createQuery(request.getQuery(), additionalTerminologyIds, pageSize(request), pageFrom(request), superUser, privilegedOrganizations);
     }
 
     private SearchRequest createQuery(String query,
                                       Collection<String> additionalTerminologyIds,
                                       int pageSize,
-                                      int pageFrom) {
+                                      int pageFrom,
+                                      boolean superUser,
+                                      Set<String> privilegedOrganizations) {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
             .from(pageFrom)
             .size(pageSize);
 
-        MatchPhrasePrefixQueryBuilder labelQuery = null;
+        QueryBuilder incompleteQuery = statusAndContributorQuery(privilegedOrganizations);
+
+        QueryBuilder labelQuery = null;
         if (!query.isEmpty()) {
-            labelQuery = QueryBuilders.matchPhrasePrefixQuery("properties.prefLabel.value", query);
-            sourceBuilder.highlighter(new HighlightBuilder().preTags("<b>").postTags("</b>").field("properties.prefLabel.value"));
+            labelQuery = ElasticRequestUtils.buildPrefixSuffixQuery(query).field("properties.prefLabel.value");
         }
 
         TermsQueryBuilder idQuery = null;
@@ -73,21 +81,68 @@ public class TerminologyQueryFactory {
         }
 
         if (idQuery != null && labelQuery != null) {
-            sourceBuilder.query(QueryBuilders.boolQuery()
+            sourceBuilder.query(combineIncompleteQuery(QueryBuilders.boolQuery()
                 .should(labelQuery)
                 .should(idQuery)
-                .minimumShouldMatch(1));
+                .minimumShouldMatch(1), incompleteQuery, superUser));
         } else if (idQuery != null) {
-            sourceBuilder.query(idQuery);
+            sourceBuilder.query(combineIncompleteQuery(idQuery, incompleteQuery, superUser));
         } else if (labelQuery != null) {
-            sourceBuilder.query(labelQuery);
+            sourceBuilder.query(combineIncompleteQuery(labelQuery, incompleteQuery, superUser));
         } else {
-            sourceBuilder.query(QueryBuilders.matchAllQuery());
+            if (superUser) {
+                sourceBuilder.query(QueryBuilders.matchAllQuery());
+            } else {
+                sourceBuilder.query(incompleteQuery);
+            }
         }
 
         SearchRequest sr = new SearchRequest("vocabularies")
             .source(sourceBuilder);
+        //log.debug("Terminology Query request: " + sr.toString());
         return sr;
+    }
+
+    public SearchRequest createMatchingTerminologiesQuery(Set<String> privilegedOrganizations) {
+        return createMatchingTerminologiesQuery(privilegedOrganizations, null);
+    }
+
+    public SearchRequest createMatchingTerminologiesQuery(final Collection<String> privilegedOrganizations,
+                                                          final Collection<String> limitToThese) {
+        // TODO: When terminology node ID starts to be "the" id then fetchSource(false) and modify parsing, and change id limit to terms query.
+        final QueryBuilder contribQuery = QueryBuilders.termsQuery("references.contributor.id", privilegedOrganizations);
+        QueryBuilder finalQuery = contribQuery;
+        if (limitToThese != null && !limitToThese.isEmpty()) {
+            // QueryBuilders.termsQuery("id", limitToThese);
+            final BoolQueryBuilder limitQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+            for (String id : limitToThese) {
+                limitQuery.should(QueryBuilders.matchQuery("type.graph.id", id));
+            }
+            finalQuery = QueryBuilders.boolQuery()
+                .must(contribQuery)
+                .must(limitQuery);
+        }
+
+        SearchRequest sr = new SearchRequest("vocabularies")
+            .source(new SearchSourceBuilder()
+                .size(1000)
+                .query(finalQuery));
+        //.fetchSource(false));
+        return sr;
+    }
+
+    public Set<String> parseMatchingTerminologiesResponse(SearchResponse response) {
+        Set<String> ret = new HashSet<>();
+        for (SearchHit hit : response.getHits()) {
+            try {
+                JsonNode terminology = objectMapper.readTree(hit.getSourceAsString());
+                //ret.add(hit.getId());
+                ret.add(terminology.get("type").get("graph").get("id").textValue());
+            } catch (Exception e) {
+                log.error("Cannot parse matching terminologies response", e);
+            }
+        }
+        return ret;
     }
 
     public TerminologySearchResponse parseResponse(SearchResponse response,
@@ -98,6 +153,7 @@ public class TerminologyQueryFactory {
         try {
             SearchHits hits = response.getHits();
             ret.setTotalHitCount(hits.getTotalHits());
+            Pattern highlightPattern = ElasticRequestUtils.createHighlightPattern(request.getQuery());
             for (SearchHit hit : hits) {
                 JsonNode terminology = objectMapper.readTree(hit.getSourceAsString());
                 // NOTE: terminology.get("id") would make more sense, but currently concepts contain only graph id => use it here also.
@@ -111,8 +167,7 @@ public class TerminologyQueryFactory {
                 Map<String, String> labelMap = ElasticRequestUtils.labelFromLangValueArray(properties.get("prefLabel"));
                 Map<String, String> descriptionMap = ElasticRequestUtils.labelFromLangValueArray(properties.get("description"));
 
-                // TODO: Does not make sense if cannot make to highlight only matching chars
-                //handleHighlight(hit.getHighlightFields(), labelMap);
+                ElasticRequestUtils.highlightLabel(labelMap, highlightPattern);
 
                 JsonNode references = terminology.get("references");
                 JsonNode domainArray = references.get("inGroup");
@@ -143,27 +198,6 @@ public class TerminologyQueryFactory {
         return ret;
     }
 
-    private void handleHighlight(Map<String, HighlightField> highlightFields,
-                                 Map<String, String> labelMap) {
-        // TODO: Remove this .. err, interesting thing, when index contains things in "label: {fi: 'koira', se: 'hund'}" form
-        if (highlightFields != null) {
-            HighlightField field = highlightFields.get("properties.prefLabel.value");
-            if (field != null) {
-                Map<String, String> hmap = new HashMap<>();
-                for (Text fragment : field.getFragments()) {
-                    String highlightedLabel = fragment.string();
-                    String lowlightedLabel = highlightedLabel.replaceAll("</?b>", "");
-                    for (Map.Entry<String, String> entry : labelMap.entrySet()) {
-                        if (lowlightedLabel.equals(entry.getValue())) {
-                            hmap.put(entry.getKey(), highlightedLabel);
-                        }
-                    }
-                }
-                labelMap.putAll(hmap);
-            }
-        }
-    }
-
     private int pageSize(TerminologySearchRequest request) {
         Integer size = request.getPageSize();
         if (size != null && size >= 0) {
@@ -178,5 +212,31 @@ public class TerminologyQueryFactory {
             return from.intValue();
         }
         return DEFAULT_PAGE_FROM;
+    }
+
+    private QueryBuilder combineIncompleteQuery(QueryBuilder query,
+                                                QueryBuilder incompleteQuery,
+                                                boolean superUser) {
+        if (superUser) {
+            return query;
+        }
+        return QueryBuilders.boolQuery()
+            .must(incompleteQuery)
+            .must(query);
+    }
+
+    private QueryBuilder statusAndContributorQuery(Set<String> privilegedOrganizations) {
+        // Content must either be in some other state than INCOMPLETE, or the user must match a contributor organization.
+        QueryBuilder statusQuery = QueryBuilders.boolQuery().mustNot(QueryBuilders.matchQuery("properties.status.value", "INCOMPLETE"));
+        QueryBuilder privilegeQuery;
+        if (privilegedOrganizations != null && !privilegedOrganizations.isEmpty()) {
+            privilegeQuery = QueryBuilders.boolQuery()
+                .should(statusQuery)
+                .should(QueryBuilders.termsQuery("references.contributor.id", privilegedOrganizations))
+                .minimumShouldMatch(1);
+        } else {
+            privilegeQuery = statusQuery;
+        }
+        return privilegeQuery;
     }
 }

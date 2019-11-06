@@ -22,7 +22,12 @@ import javax.validation.constraints.NotNull;
         private String groupManagementUrl;
 
         @NotNull
+        private String commentsUrl;
+
+        @NotNull
         private String env;
+
+        private boolean messagingEnabled;
 
         public String getCodeListUrl() {
             return codeListUrl;
@@ -40,6 +45,14 @@ import javax.validation.constraints.NotNull;
             this.dataModelUrl = dataModelUrl;
         }
 
+        public String getCommentsUrl() {
+            return commentsUrl;
+        }
+
+        public void setCommentsUrl(String commentsUrl) {
+            this.commentsUrl = commentsUrl;
+        }
+
         public String getGroupManagementUrl() {
             return groupManagementUrl;
         }
@@ -54,6 +67,14 @@ import javax.validation.constraints.NotNull;
 
         public void setEnv(String env) {
             this.env = env;
+        }
+
+        public boolean getMessagingEnabled() {
+            return messagingEnabled;
+        }
+
+        public void setMessagingEnabled(final boolean messagingEnabled) {
+            this.messagingEnabled = messagingEnabled;
         }
     }
 

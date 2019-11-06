@@ -1,5 +1,6 @@
 package fi.vm.yti.terminology.api.util;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -126,8 +127,10 @@ public final class JsonUtils {
 		}
 	}
 
-	public static String prettyPrintJsonAsString(Object node){
+	public static String prettyPrintJsonAsString(Object node){		
 		ObjectMapper mapper = new ObjectMapper();
+		mapper.setSerializationInclusion(Include.NON_NULL);
+		mapper.setSerializationInclusion(Include.NON_EMPTY);
 		try {
 			return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
 		} catch (com.fasterxml.jackson.core.JsonProcessingException e) {

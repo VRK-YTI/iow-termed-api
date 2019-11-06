@@ -1,6 +1,8 @@
 package fi.vm.yti.terminology.api.model.termed;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import static com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import java.util.UUID;
 
@@ -8,6 +10,7 @@ public final class TypeId {
 
     private final NodeType id;
     private final GraphId graph;
+    @JsonInclude(Include.NON_EMPTY) 
     private final String uri;
 
     // Jackson constructor

@@ -1,0 +1,48 @@
+99search.host.url=localhost
+search.host.port=9104
+search.host.scheme=http
+
+api.url=http://localhost:9102/api
+api.user=admin
+api.pw=admin
+
+notify.hook.url=http://localhost:8001/notify
+
+groupmanagement.url=http://localhost:9302
+groupmanagement.public.url=https://rhp-dev.suomi.fi
+
+application.public.url=http://localhost:4200
+
+fake.login.alloved=true
+fake.login.mail=ytitestaaja@gmail.com
+#fake.login.mail=kimmo.leppinen@compile.fi
+fake.login.firstName=Kimmo
+fake.login.lastName=Leppinen
+
+# logging leveld
+logging.level.fi.vm.yti.terminology.api=INFO
+
+services.codeListUrl=https://koodistot-dev.suomi.fi
+services.dataModelUrl=https://tietomallit-dev.suomi.fi
+services.groupManagementUrl=https://rhp-dev.suomi.fi
+
+#File-upload
+spring.http.multipart.enabled=true 
+#spring.http.multipart.location= /tmp
+spring.http.multipart.max-file-size=30MB
+spring.http.multipart.max-request-size=30MB
+
+#ActiveMQ config
+spring.activemq.broker-url=tcp://localhost:9901
+#spring.activemq.broker-url=ssl://b-fa9e8017-3731-45c6-8582-9ee553627870-1.mq.eu-west-1.amazonaws.com:61617
+spring.activemq.user=yti
+spring.activemq.password=test
+#spring.activemq.password=4P2pzQXYicfYjWNL98iBFJsDFZrqcGDP
+#spring.activemq.user=MQ_USER
+#spring.activemq.password=password
+spring.activemq.packages.trust-all=true
+#Enable also topics for status messages
+#spring.jms.pub-sub-domain=true
+
+#Can be Codelist, Vocabulary
+mq.active.subsystem=Vocabulary

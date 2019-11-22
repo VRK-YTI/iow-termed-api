@@ -39,15 +39,15 @@ public class NotificationController {
         this.elasticSearchService = elasticSearchService;
     }
 
-    @RequestMapping("/notify")
+    @RequestMapping("/private/v1/notify")
     public void notify(@RequestBody TermedNotification notification) {
-        logger.info("/notify requested with notification.user: " + notification.body.user + " and node identifier ids:");
+        logger.info("/private/v1/notify requested with notification.user: " + notification.body.user + " and node identifier ids:");
         for (final Identifier ident: notification.body.nodes) {
             logger.info(ident.getId().toString());
         }
 
         synchronized(this.lock) {
-            logger.debug("/notify - acquired lock");
+            logger.debug("notify - acquired lock");
 
             Map<UUID, List<Identifier>> nodesByGraphId =
                     notification.body.nodes.stream().collect(Collectors.groupingBy(node -> node.getType().getGraph().getId()));
@@ -57,7 +57,7 @@ public class NotificationController {
                 UUID graphId = entries.getKey();
                 List<Identifier> nodes = entries.getValue();
 
-                logger.debug("/notify - updating a set of " + nodes.size() + " for " + graphId.toString());
+                logger.debug("notify - updating a set of " + nodes.size() + " for " + graphId.toString());
                 List<UUID> vocabularies = extractIdsOfType(nodes, vocabularyTypes);
                 List<UUID> concepts = extractIdsOfType(nodes, conceptTypes);
 
@@ -70,7 +70,7 @@ public class NotificationController {
                         break;
                 }
             }
-            logger.debug("/notify - releasing lock");
+            logger.debug("notify - releasing lock");
         }
     }
 

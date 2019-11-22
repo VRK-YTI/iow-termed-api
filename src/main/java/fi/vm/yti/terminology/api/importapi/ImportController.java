@@ -16,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
 
 @RestController
-@RequestMapping("/importapi")
+@RequestMapping("/api/v1/import")
 public class ImportController {
 
     private final ImportService importService;

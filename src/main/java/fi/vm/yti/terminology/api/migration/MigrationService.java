@@ -1,11 +1,26 @@
 package fi.vm.yti.terminology.api.migration;
 
+import static fi.vm.yti.terminology.api.migration.DomainIndex.SCHEMA_GRAPH_ID;
+import static fi.vm.yti.terminology.api.util.CollectionUtils.filterToList;
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
+import static org.springframework.http.HttpMethod.DELETE;
+import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.PUT;
+import static org.springframework.http.HttpMethod.POST;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import fi.vm.yti.terminology.api.TermedRequester;
-import fi.vm.yti.terminology.api.model.termed.*;
-import fi.vm.yti.terminology.api.util.JsonUtils;
-import fi.vm.yti.terminology.api.util.Parameters;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -14,31 +29,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static fi.vm.yti.terminology.api.migration.DomainIndex.SCHEMA_GRAPH_ID;
-import static fi.vm.yti.terminology.api.util.CollectionUtils.filterToList;
-import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-import static org.springframework.http.HttpMethod.GET;
-import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.http.HttpMethod.DELETE;
-
-import static fi.vm.yti.terminology.api.migration.DomainIndex.VOCABULARY_TEMPLATE_GRAPH_ID;
-import static fi.vm.yti.terminology.api.migration.DomainIndex.SCHEMA_GRAPH_ID;
-import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
+import fi.vm.yti.security.AuthenticatedUserProvider;
+import fi.vm.yti.terminology.api.TermedRequester;
+import fi.vm.yti.terminology.api.model.termed.GenericDeleteAndSave;
+import fi.vm.yti.terminology.api.model.termed.GenericNode;
+import fi.vm.yti.terminology.api.model.termed.Graph;
+import fi.vm.yti.terminology.api.model.termed.Identifier;
+import fi.vm.yti.terminology.api.model.termed.MetaNode;
+import fi.vm.yti.terminology.api.model.termed.NodeType;
+import fi.vm.yti.terminology.api.model.termed.Type;
+import fi.vm.yti.terminology.api.model.termed.TypeId;
+import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
+import fi.vm.yti.terminology.api.util.JsonUtils;
+import fi.vm.yti.terminology.api.util.Parameters;
 
 @Service
 /*
@@ -156,8 +161,14 @@ public class MigrationService {
         Parameters params = new Parameters();
         params.add("max", "-1");
         String path = "/graphs/" + graphId;
-        log.info("findGraph(" + graphId + ") called");
         return termedRequester.exchange(path, GET, params, MetaNode.class);
+    }
+
+    public @Nullable Graph getGraph(UUID graphId) {
+        Parameters params = new Parameters();
+        params.add("max", "-1");
+        String path = "/graphs/" + graphId;
+        return termedRequester.exchange(path, GET, params, Graph.class);
     }
 
     public void updateTypes(VocabularyNodeType vocabularyNodeType, Consumer<MetaNode> modifier) {
@@ -288,6 +299,21 @@ public class MigrationService {
                 }));
     }
 
+    public boolean updateGraph(Graph g) {
+        boolean rv = true;
+        Parameters params = new Parameters();
+        params.add("changeset", "true");
+        try {
+            this.termedRequester.exchange("/graphs/"+g.getId(), PUT, params, String.class, g);
+        } catch (HttpServerErrorException ex) {
+            log.error("Incoming update list contains:"+g.getUri()+" id:"+g.getId());
+            log.error("Update failed:"+ex.getResponseBodyAsString());
+            rv = false;
+        }
+        return rv;
+    }
+
+
     public void updateNodesWithJson(Resource resource) {
         try {
             updateNodesWithJson(objectMapper.readTree(resource.getInputStream()));
@@ -350,9 +376,43 @@ public class MigrationService {
         Parameters params = new Parameters();
         params.add("select", "*");
         params.add("where", "id:" + id.toString());
-        JsonNode node = termedRequester.exchange("/node-trees", GET, params,
-                JsonNode.class);
+        JsonNode node = termedRequester.exchange("/node-trees", GET, params, JsonNode.class);
         return node;
     }
 
+    public GenericNode replaceIdRef(UUID id, UUID source, UUID target) {
+        GenericNode node = null;
+        Parameters params = new Parameters();
+        params.add("select", "*");
+        params.add("where", "id:" + id.toString());
+        String nodeStr = termedRequester.exchange("/node-trees", GET, params, String.class);
+        if (nodeStr != null && !nodeStr.isEmpty() && nodeStr.length() > 2) {
+            nodeStr = nodeStr.replaceAll(source.toString(), target.toString());
+            // Remove array brackets from response
+            nodeStr = nodeStr.substring(1, nodeStr.length() - 1);
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                node = mapper.readValue(nodeStr, GenericNode.class);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        return node;
+    }
+
+    public boolean updateAndDeleteInternalNodes(GenericDeleteAndSave deleteAndSave, boolean sync) {
+        boolean rv = true;
+        Parameters params = new Parameters();
+        params.add("changeset", "true");
+        params.add("sync", String.valueOf(sync));
+        try {
+            this.termedRequester.exchange("/nodes", POST, params, String.class, deleteAndSave);
+        } catch (HttpServerErrorException ex) {
+            log.error("Incoming update list contains:"+deleteAndSave.getSave().size()+" items");
+            log.error("Update failed:"+ex.getResponseBodyAsString());
+            rv = false;
+        }
+        return rv;
+    }
 }

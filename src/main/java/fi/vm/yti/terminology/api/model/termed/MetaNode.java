@@ -19,7 +19,7 @@ import fi.vm.yti.terminology.api.migration.PropertyUtil;
 public final class MetaNode {
 
     private final String id;
-    private final String uri;
+    private String uri;
     private final Long index;
     private final GraphId graph;
     private final Map<String, List<Permission>> permissions;
@@ -56,6 +56,10 @@ public final class MetaNode {
 
     public String getUri() {
         return uri;
+    }
+
+    public void setUri(String uri) {
+        this.uri = uri;
     }
 
     public TypeId getDomain() {

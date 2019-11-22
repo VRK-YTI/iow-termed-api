@@ -22,7 +22,7 @@ public class IntegrationResourceRequest {
  */
     private String searchTerm;
     private String language;
-    private String container;
+    private Set<String> container;
     private Set<String> status;
     private String before;
     private String after;
@@ -36,7 +36,7 @@ public class IntegrationResourceRequest {
 
     public IntegrationResourceRequest(){}
 
-    public IntegrationResourceRequest(final String container,
+    public IntegrationResourceRequest(final Set<String> container,
                                       final String searchTerm,
                                       final Set<String> uri,
                                       final String language,
@@ -62,11 +62,11 @@ public class IntegrationResourceRequest {
         this.pageFrom = pageFrom;
     }
 
-    public String getContainer() {
+    public Set<String> getContainer() {
         return container;
     }
 
-    public void setContainer(final String container) {
+    public void setContainer(final Set<String> container) {
         this.container = container;
     }
 

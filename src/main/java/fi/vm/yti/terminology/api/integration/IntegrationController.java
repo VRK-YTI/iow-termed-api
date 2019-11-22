@@ -18,23 +18,32 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import fi.vm.yti.security.AuthenticatedUserProvider;
+import fi.vm.yti.security.AuthorizationException;
+import fi.vm.yti.security.YtiUser;
 import fi.vm.yti.terminology.api.model.integration.ConceptSuggestionRequest;
 import fi.vm.yti.terminology.api.model.integration.IntegrationContainerRequest;
 import fi.vm.yti.terminology.api.model.integration.IntegrationResourceRequest;
 import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
+import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 @RestController
-@RequestMapping("/integration")
+@RequestMapping("/api/v1/integration")
 public class IntegrationController {
 
     private final IntegrationService integrationService;
+    private final AuthenticatedUserProvider userProvider;
 
     private static final Logger logger = LoggerFactory.getLogger(IntegrationController.class);
 
-    public IntegrationController(IntegrationService integrationService) {
+    public IntegrationController(IntegrationService integrationService,
+                                 AuthenticatedUserProvider userProvider) {
         this.integrationService = integrationService;
+        this.userProvider = userProvider;
     }
 
     /**
@@ -44,14 +53,18 @@ public class IntegrationController {
      * @param incomingConcept
      * @return
      */
-    @ApiResponse(code = 200, message = "Returns JSON with Vocabulary-list, pref-labels, descriptions, status and modified date")
+    @ApiResponse(code = 200, message = "Returns JSON with basic info of created suggestion, or an error string")
     @RequestMapping(value = "/terminology/conceptSuggestion", method = POST, produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
     ResponseEntity<String> conceptSuggestion(@Context HttpServletRequest req,
             @RequestBody ConceptSuggestionRequest incomingConcept) {
-        if (req != null) {
-            logger.debug("ConceptSuggestion incoming reaquest from" + req.getRemoteHost());
+        logger.info("POST /api/v1/integration/terminology/conceptSuggestion from " + (req != null ? req.getRemoteHost() : "N/A"));
+        YtiUser user = userProvider.getUser();
+        if (!user.isAnonymous()) {
+            incomingConcept.setCreator(user.getId().toString());
+            return integrationService.handleConceptSuggestion(incomingConcept);
+        } else {
+            throw new AuthorizationException("Making concept suggestions require authorized user");
         }
-        return integrationService.handleConceptSuggestion(incomingConcept);
     }
 
     @ApiResponse(code = 200, message = "Returns JSON with Vocabulary-list.")
@@ -100,7 +113,7 @@ public class IntegrationController {
             @ApiResponse(code = 404, message = "Service not found"),
             @ApiResponse(code = 500, message = "Internal server error") })
     ResponseEntity<String> resources(
-            @ApiParam(value = "Container URL") @RequestParam(value = "container", required = false) String container,
+            @ApiParam(value = "Container URL list") @RequestParam(value = "container", required = false) Set<String> container,
             @ApiParam(value = "Required URI list in CSL format") @RequestParam(value = "uri", required = false) Set<String> uri,
             @ApiParam(value = "Language") @RequestParam(value = "language", required = false) String lang,
             @ApiParam(value = "Queried statuses in CSL format.") @RequestParam(value = "status", required = false) Set<String> status,

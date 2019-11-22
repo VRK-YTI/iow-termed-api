@@ -6,7 +6,8 @@ import org.jetbrains.annotations.Nullable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@JsonIgnoreProperties(value = { "superuser", "newlyCreated", "creationDateTime", "organization" })
+//@JsonIgnoreProperties(value = { "superuser", "newlyCreated", "creationDateTime", "organization" })
+@JsonIgnoreProperties(ignoreUnknown=true)
 public class GroupManagementUser {
 
     private final UUID id;

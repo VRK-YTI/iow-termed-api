@@ -24,7 +24,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 
 @Controller
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 public class ResolveController {
     private static final Logger logger = LoggerFactory.getLogger(ResolveController.class);
 
@@ -88,11 +88,11 @@ public class ResolveController {
         } else {
             switch (resource.getType()) {
             case VOCABULARY:
-                return "/api/vocabulary?graphId=" + resource.getGraphId();
+                return "/terminology/api/v1/vocabulary?graphId=" + resource.getGraphId();
             case CONCEPT:
-                return "/api/concept?graphId=" + resource.getGraphId() + "&id=" + resource.getId();
+                return "/terminology/api/v1/concept?graphId=" + resource.getGraphId() + "&id=" + resource.getId();
             case COLLECTION:
-                return "/api/collection?graphId=" + resource.getGraphId() + "&id=" + resource.getId();
+                return "/terminology/api/v1/collection?graphId=" + resource.getGraphId() + "&id=" + resource.getId();
             default:
                 throw new RuntimeException("Unsupported type: " + resource.getType());
             }

@@ -18,27 +18,17 @@ public class SwaggerConfig {
                 .groupName("frontend")
                 .select()
                 .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/frontend/**"))
+                .paths(PathSelectors.ant("/api/v1/frontend/**"))
                 .build();
     }
 
     @Bean
-    public Docket reindexApi() {
+    public Docket integrationApi() {
         return new Docket(DocumentationType.SWAGGER_2)
-                .groupName("reindex")
+            .groupName("integration")
                 .select()
                 .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/reindex"))
-                .build();
-    }
-
-    @Bean
-    public Docket synchronizeApi() {
-        return new Docket(DocumentationType.SWAGGER_2)
-                .groupName("synchronize")
-                .select()
-                .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/synchronize"))
+            .paths(PathSelectors.ant("/api/v1/integration/**"))
                 .build();
     }
 
@@ -48,7 +38,7 @@ public class SwaggerConfig {
                 .groupName("import")
                 .select()
                 .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/importapi/**"))
+                .paths(PathSelectors.ant("/api/v1/import/**"))
                 .build();
     }
 
@@ -58,17 +48,7 @@ public class SwaggerConfig {
                 .groupName("export")
                 .select()
                 .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/export/**"))
-                .build();
-    }
-
-    @Bean
-    public Docket integrationApi() {
-        return new Docket(DocumentationType.SWAGGER_2)
-                .groupName("integration")
-                .select()
-                .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/integration/**"))
+                .paths(PathSelectors.ant("/api/v1/export/**"))
                 .build();
     }
 
@@ -78,7 +58,37 @@ public class SwaggerConfig {
                 .groupName("publicapi")
                 .select()
                 .apis(RequestHandlerSelectors.any())
-                .paths(PathSelectors.ant("/terminology/publicapi/**"))
+                .paths(PathSelectors.ant("/api/v1/public/**"))
+                .build();
+    }
+
+    @Bean
+    public Docket systemApi() {
+        return new Docket(DocumentationType.SWAGGER_2)
+            .groupName("system")
+                .select()
+                .apis(RequestHandlerSelectors.any())
+            .paths(PathSelectors.ant("/api/v1/system/**"))
+                .build();
+    }
+
+    @Bean
+    public Docket adminApi() {
+        return new Docket(DocumentationType.SWAGGER_2)
+            .groupName("admin")
+                .select()
+                .apis(RequestHandlerSelectors.any())
+            .paths(PathSelectors.ant("/api/v1/admin/**"))
+            .build();
+    }
+
+    @Bean
+    public Docket privateApi() {
+        return new Docket(DocumentationType.SWAGGER_2)
+            .groupName("private")
+            .select()
+            .apis(RequestHandlerSelectors.any())
+            .paths(PathSelectors.ant("/private/v1/**"))
                 .build();
     }
 }

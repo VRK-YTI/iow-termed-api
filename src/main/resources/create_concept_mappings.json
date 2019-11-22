@@ -4,8 +4,7 @@
       "label": {
         "path_match":   "label.*",
         "mapping": {
-          "type": "text",
-          "analyzer": "termed"
+          "type": "text"
         }
       }
     },
@@ -50,9 +49,7 @@
       "type": "keyword"
     },
     "modified": {
-      "type": "date",
-      "index": false
-    },
+      "type": "date"    },
     "broader": {
       "type": "keyword"
     },
@@ -72,6 +69,12 @@
     "vocabulary": {
       "properties": {
         "id": {
+          "type": "keyword"
+        },
+        "uri": {
+          "type": "keyword"
+        },
+        "status": {
           "type": "keyword"
         }
       }

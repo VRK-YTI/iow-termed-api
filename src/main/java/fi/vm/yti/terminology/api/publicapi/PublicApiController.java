@@ -13,7 +13,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 
 @RestController
-@RequestMapping("/terminology/publicapi")
+@RequestMapping("/api/v1/public")
 public class PublicApiController {
 
     private static final Logger logger = LoggerFactory.getLogger(PublicApiController.class);

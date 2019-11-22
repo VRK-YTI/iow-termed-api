@@ -22,7 +22,7 @@ import fi.vm.yti.terminology.api.model.termed.Graph;
 import io.swagger.annotations.ApiParam;
 
 @RestController
-@RequestMapping("/export")
+@RequestMapping("/api/v1/export")
 public class ExportController {
 
     private final FrontendTermedService termedService;

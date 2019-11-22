@@ -77,7 +77,14 @@ public class ApplicationInitializer {
     }
 
     private void registerNotificationUrl(String url) {
-        log.info("Registering change listener to termed API");
+        log.info("Clearing existing change listeners from Termed API");
+        try {
+            termedApiService.deleteChangeListeners();
+        } catch(Exception e) {
+            log.error("Could not drop existing Termed change listeners", e);
+        }
+
+        log.info("Registering change listener to Termed API");
 
         hookId = termedApiService.registerChangeListener(url);
 

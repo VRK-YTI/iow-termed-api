@@ -16,7 +16,10 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -138,7 +141,10 @@ public class IntegrationService {
                 if (source != null) {
                     // System.out.println("containers-Response=" +
                     // JsonUtils.prettyPrintJsonAsString(source));
-                    resp.add(parseContainerResponse(source));
+                    ContainersResponse cr = parseContainerResponse(source);
+                    // Set return type
+                    cr.setType("terminology");
+                    resp.add(cr);
                 } else {
                     logger.error("Missing containers source. Hits:" + hit);
                 }
@@ -149,12 +155,15 @@ public class IntegrationService {
         ResponseWrapper<ContainersResponse> wrapper = new ResponseWrapper<>();
         wrapper.setMeta(meta);
         wrapper.setResults(resp);
-        /*
-         * prints data without newlines. ObjectMapper mapper = new ObjectMapper(); try {
-         * System.out.println(" mapper.write=" + mapper.writeValueAsString(wrapper)); }
-         * catch (JsonProcessingException jpe) { }
-         */
-        return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(wrapper), HttpStatus.OK);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        try {
+            return new ResponseEntity<>(mapper.writeValueAsString(wrapper), HttpStatus.OK);
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return new ResponseEntity<>("{}", HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     private SearchRequest createContainersQuery(IntegrationContainerRequest request) {
@@ -319,9 +328,13 @@ public class IntegrationService {
         String uri = null;
         if (source.get("uri") != null) {
             uri = source.get("uri").asText();
-            // Remove code from uri so
-            uri = uri.substring(0, uri.lastIndexOf("/")) + "/";
+            if (uri.contains("/terminological-vocabulary")) {
+                // container is
+                // Remove code from uri if it like terminology---
+                uri = uri.substring(0, uri.lastIndexOf("/")) + "/";
+            }
         }
+
         respItem.setUri(uri);
 
         if (modifiedDate != null) {
@@ -427,6 +440,7 @@ public class IntegrationService {
                 JsonNode source = hit.get("_source");
                 if (source != null) {
                     ContainersResponse node = parseResourceResponse(source);
+                    node.setType("consept");
                     if (node.getUri() != null && node.getPrefLabel() != null && node.getStatus() != null) {
                         resp.add(node);
                     } else {
@@ -449,12 +463,16 @@ public class IntegrationService {
         ResponseWrapper<ContainersResponse> wrapper = new ResponseWrapper<>();
         wrapper.setMeta(meta);
         wrapper.setResults(resp);
-        /*
-         * prints data without newlines. ObjectMapper mapper = new ObjectMapper(); try {
-         * System.out.println(" mapper.write=" + mapper.writeValueAsString(wrapper)); }
-         * catch (JsonProcessingException jpe) { }
-         */
-        return new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(wrapper), HttpStatus.OK);
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        try {
+            return new ResponseEntity<>(mapper.writeValueAsString(wrapper), HttpStatus.OK);
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return new ResponseEntity<>("{}", HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     private SearchRequest createResourcesQuery(IntegrationResourceRequest request) {
@@ -465,19 +483,36 @@ public class IntegrationService {
         List<QueryBuilder> mustList = boolQuery.must();
         List<QueryBuilder> mustNotList = boolQuery.mustNot();
 
-        String terminologyNamespaceUri = null;
+        Set<String> terminologyContainerUris = null;
         if (request.getContainer() != null && !request.getContainer().isEmpty()) {
-            terminologyNamespaceUri = request.getContainer();
-            if (!terminologyNamespaceUri.endsWith("/")) {
-                terminologyNamespaceUri = terminologyNamespaceUri + "/";
+            terminologyContainerUris = new HashSet<>();
+            BoolQueryBuilder uriBoolQuery = QueryBuilders.boolQuery();
+            for (String uriFromRequest : request.getContainer()) {
+                if (!uriFromRequest.endsWith("/")) {
+                    uriFromRequest = uriFromRequest + "/";
+                }
+                if (namespacePattern.matcher(uriFromRequest).matches()) {
+                    uriBoolQuery.should(QueryBuilders.prefixQuery("uri", uriFromRequest));
+                } else {
+                    logger.warn("URI is probably invalid: " + uriFromRequest);
+                    uriBoolQuery.should(QueryBuilders.termQuery("uri", uriFromRequest)); // basically will not match
+                }
+                terminologyContainerUris.add(uriFromRequest);
             }
-            if (namespacePattern.matcher(terminologyNamespaceUri).matches()) {
-                mustList.add(QueryBuilders.prefixQuery("vocabulary.uri", terminologyNamespaceUri));
-            } else {
-                logger.warn("Container parameter is probably invalid: " + request.getContainer());
-                mustList.add(QueryBuilders.termQuery("vocabulary.uri", terminologyNamespaceUri)); // basically will not
-                                                                                                  // match
-            }
+            uriBoolQuery.minimumShouldMatch(1);
+            mustList.add(uriBoolQuery);
+        }
+        // match
+        Set<String> terminologyNsUris = request.getUri();
+        if (request.getUri() != null && !request.getUri().isEmpty()) {
+            QueryBuilder uriQuery = QueryBuilders.boolQuery().should(QueryBuilders.termsQuery("uri", request.getUri()))
+                    .minimumShouldMatch(1);
+            mustList.add(uriQuery);
+        }
+
+        if (request.getContainer() == null && request.getUri() == null) {
+            // Don't return items without URI
+            mustList.add(QueryBuilders.existsQuery("uri"));
         }
 
         // Checks regarding the "visibility" of INCOMPLETE containers (terminologies)
@@ -487,7 +522,7 @@ public class IntegrationService {
             // parameter includeIncomplete.
             final boolean incompleteFromSetGiven = request.getIncludeIncompleteFrom() != null
                     && !request.getIncludeIncompleteFrom().isEmpty();
-            final boolean directContainerUriGiven = terminologyNamespaceUri != null;
+            final boolean directContainerUriGiven = terminologyNsUris != null;
             final boolean superUserGiven = request.getIncludeIncomplete();
             final boolean bypassAllChecks = (superUserGiven && !incompleteFromSetGiven) || (directContainerUriGiven
                     && CONFIG_DO_NOT_CHECK_STATE_OF_GIVEN_CONTAINERS && CONFIG_ONLY_CHECK_CONTAINER_STATE);
@@ -498,7 +533,7 @@ public class IntegrationService {
                         // In this case the ID set should have at most one ID, but the same logic
                         // suffices
                         terminologyIds = resolveTerminologiesMatchingOrganizations(request.getIncludeIncompleteFrom(),
-                                Collections.singleton(terminologyNamespaceUri));
+                                terminologyNsUris);
                     } else {
                         terminologyIds = resolveTerminologiesMatchingOrganizations(request.getIncludeIncompleteFrom(),
                                 Collections.emptySet());
@@ -527,20 +562,6 @@ public class IntegrationService {
             QueryStringQueryBuilder labelQuery = ElasticRequestUtils.buildPrefixSuffixQuery(request.getSearchTerm())
                     .field("label.*");
             mustList.add(labelQuery);
-        }
-
-        if (request.getUri() != null && !request.getUri().isEmpty()) {
-            BoolQueryBuilder uriBoolQuery = QueryBuilders.boolQuery();
-            // add actual status filtering
-            // Add individual uris into the query
-            request.getUri().forEach(o -> {
-                uriBoolQuery.should(QueryBuilders.matchQuery("uri", o));
-            });
-            uriBoolQuery.minimumShouldMatch(1);
-            mustList.add(uriBoolQuery);
-
-            // Just ensure that it accept also INCOMPLETE states
-            request.setIncludeIncomplete(true);
         }
 
         if (request.getBefore() != null) {
@@ -616,9 +637,11 @@ public class IntegrationService {
         }
         if (source.get("uri") != null) {
             uri = source.get("uri").asText();
-            // container is
-            // Remove code from uri so
-            container = uri.substring(0, uri.lastIndexOf("/")) + "/";
+            if (uri.contains("terminological-vocabulary")) {
+                // container is
+                // Remove code from uri if it like terminology---
+                container = uri.substring(0, uri.lastIndexOf("/")) + "/";
+            }
         } else {
             logger.warn("Resource response missing URI");
         }

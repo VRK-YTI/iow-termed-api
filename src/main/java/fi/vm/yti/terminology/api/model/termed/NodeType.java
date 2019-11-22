@@ -13,6 +13,6 @@ public enum NodeType {
     Schema;
 
     public static NodeType placeholder() {
-        return Vocabulary;
+        return TerminologicalVocabulary;
     }
 }

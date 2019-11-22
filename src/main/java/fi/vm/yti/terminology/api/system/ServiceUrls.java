@@ -1,4 +1,4 @@
-package fi.vm.yti.terminology.api.frontend;
+package fi.vm.yti.terminology.api.system;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

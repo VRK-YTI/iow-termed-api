@@ -36,7 +36,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.*;
 
 @RestController
-@RequestMapping("/frontend")
+@RequestMapping("/api/v1/frontend")
 public class FrontendController {
 
     private final FrontendTermedService termedService;
@@ -47,8 +47,6 @@ public class FrontendController {
     private final String namespaceRoot;
     private final String groupManagementUrl;
     private final boolean fakeLoginAllowed;
-    private final ServiceUrls serviceUrls;
-    private final boolean restrictFilterOptions;
 
     private static final Logger logger = LoggerFactory.getLogger(FrontendController.class);
 
@@ -59,9 +57,7 @@ public class FrontendController {
                               AuthenticatedUserProvider userProvider,
                               @Value("${namespace.root}") String namespaceRoot,
                               @Value("${groupmanagement.public.url}") String groupManagementUrl,
-                              @Value("${fake.login.allowed:false}") boolean fakeLoginAllowed,
-                              ServiceUrls serviceUrls,
-                              @Value("${front.restrictFilterOptions}") boolean restrictFilterOptions) {
+                              @Value("${fake.login.allowed:false}") boolean fakeLoginAllowed) {
         this.termedService = termedService;
         this.elasticSearchService = elasticSearchService;
         this.groupManagementService = groupManagementService;
@@ -70,8 +66,6 @@ public class FrontendController {
         this.namespaceRoot = namespaceRoot;
         this.groupManagementUrl = groupManagementUrl;
         this.fakeLoginAllowed = fakeLoginAllowed;
-        this.serviceUrls = serviceUrls;
-        this.restrictFilterOptions = restrictFilterOptions;
     }
 
     @RequestMapping(value = "/groupManagementUrl", method = GET, produces = APPLICATION_JSON_VALUE)
@@ -272,21 +266,5 @@ public class FrontendController {
     TerminologySearchResponse searchTerminology(@RequestBody TerminologySearchRequest request) {
         logger.info("POST /searchTerminology requested with query: " + request.toString());
         return elasticSearchService.searchTerminology(request);
-    }
-
-    @RequestMapping(value = "/configuration", method = GET, produces = APPLICATION_JSON_VALUE)
-    public Configuration getConfiguration() {
-        logger.info("getConfiguration requested");
-
-        Configuration conf = new Configuration();
-        conf.codeListUrl = this.serviceUrls.getCodeListUrl();
-        conf.dataModelUrl = this.serviceUrls.getDataModelUrl();
-        conf.commentsUrl = this.serviceUrls.getCommentsUrl();
-        conf.groupmanagementUrl = this.serviceUrls.getGroupManagementUrl();
-        conf.messagingEnabled = this.serviceUrls.getMessagingEnabled();
-        conf.env = this.serviceUrls.getEnv();
-        conf.restrictFilterOptions = this.restrictFilterOptions;
-
-        return conf;
     }
 }

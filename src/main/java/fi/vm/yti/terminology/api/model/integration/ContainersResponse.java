@@ -32,6 +32,8 @@ public class ContainersResponse implements Serializable {
     @JsonProperty("modified")
     private String modified = null;
 
+    @JsonProperty("type")
+    private String type = null;
     private List<String> languages = null;
 
     private final static long serialVersionUID = 306028529823257143L;
@@ -87,6 +89,15 @@ public class ContainersResponse implements Serializable {
         this.container = container;
     }
 
+    @JsonProperty("type")
+    public String getType() {
+        return type;
+    }
+
+    @JsonProperty("type")
+    public void setType(String type) {
+        this.type = type;
+    }
 
     @JsonProperty("prefLabel")
     public Map<String, String> getPrefLabel() {
@@ -142,6 +153,7 @@ public class ContainersResponse implements Serializable {
     public String toString() {
         String value = "{\"uri\":\""+this.uri+"\","+
         "\"container\":\""+this.container+"\","+
+        "\"type\":\""+this.type+"\","+
         "\"languages\":\""+this.languages+"\","+
         "\"prefLabel\":\""+this.prefLabel+"\","+
         "\"description\":\""+this.description+"\","+ 

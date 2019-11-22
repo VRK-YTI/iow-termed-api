@@ -39,11 +39,15 @@ public class IndexTermedService {
         this.termedRequester = termedRequester;
     }
 
-	public void deleteChangeListener(@NotNull String hookId) {
-        termedRequester.exchange("/hooks/" + hookId, HttpMethod.DELETE, Parameters.empty(), String.class);
+    public void deleteChangeListener(@NotNull String hookId) {
+        termedRequester.exchange("/hooks" + hookId, HttpMethod.DELETE, Parameters.empty(), String.class);
     }
 
-	public @Nullable String registerChangeListener(@NotNull String url) {
+    public void deleteChangeListeners() {
+        termedRequester.exchange("/hooks", HttpMethod.DELETE, Parameters.empty(), String.class);
+    }
+
+    public @Nullable String registerChangeListener(@NotNull String url) {
 
         String response = termedRequester.exchange("/hooks", HttpMethod.POST, Parameters.single("url", url), String.class);
 
@@ -63,19 +67,21 @@ public class IndexTermedService {
                 .collect(toList());
     }
 
+    
     @NotNull List<UUID> fetchAllAvailableVocabularyGraphIds() {
 
         log.info("Fetching all vocabulary graph IDs..");
+
         return asStream(termedRequester.exchange("/graphs", GET, Parameters.empty(), JsonNode.class))
                 .filter(node -> {
-                    // Proper vocabularies have existing URI
-                    // And don't  start with http://urn.fi/URN:NBN
-                    if(node.get("uri") != null ){
+            // Proper vocabularies have existing URI
+            // And don't start with http://urn.fi/URN:NBN
+            if (node.get("uri") != null) {
                         if ( !node.get("uri").textValue().isEmpty() && !node.get("uri").textValue().startsWith("http://urn.fi/URN:NBN")) {
-                            return true;
-                        }
-                    } 
-                    return false;
+                    return true;
+                }
+            }
+            return false;
                 })
                 .map(x -> UUID.fromString(x.get("id").textValue()))
                 .collect(toList());
@@ -86,12 +92,12 @@ public class IndexTermedService {
         log.info("Fetching all graph");
         return requireNonNull(
                 termedRequester.exchange("/graphs", GET, Parameters.empty(), new ParameterizedTypeReference<List<Graph>>() {
-                }));               
+                }));
     }
 
 	@NotNull List<Concept> getAllConceptsForGraph(@NotNull UUID graphId) {
 
-	    AllNodesResult allNodesResult = this.fetchAllNodesInGraph(graphId);
+        AllNodesResult allNodesResult = this.fetchAllNodesInGraph(graphId);
 
         Optional<UUID> vocabularyNodeId = allNodesResult.getVocabularyNodeId();
 
@@ -100,15 +106,15 @@ public class IndexTermedService {
                     .map(conceptId -> Concept.createFromAllNodeResult(conceptId, vocabularyNodeId.get(), allNodesResult))
                     .collect(toList());
         } else {
-            log.warn("Vocabulary not found for graph: " + graphId);
+            log.warn("Concepts not found for graph: " + graphId);
             return emptyList();
         }
-	}
+    }
 
     @NotNull List<Concept> getConcepts(@NotNull UUID graphId, @NotNull Collection<UUID> ids) {
 
-	    if (ids.isEmpty()) {
-	        return emptyList();
+        if (ids.isEmpty()) {
+            return emptyList();
         }
 
         Vocabulary vocabulary = getVocabulary(graphId);
@@ -157,7 +163,7 @@ public class IndexTermedService {
 
     private @Nullable Vocabulary getVocabulary(@NotNull UUID graphId) {
 
-	    JsonNode vocabularyNode = getVocabularyNode(graphId);
+        JsonNode vocabularyNode = getVocabularyNode(graphId);
 
         if (vocabularyNode != null) {
             return Vocabulary.createFromExtJson(vocabularyNode);
@@ -183,7 +189,9 @@ public class IndexTermedService {
         long start = System.currentTimeMillis();
         JsonNode json = getFullVocabularyNode(graphId, VocabularyType.TerminologicalVocabulary);
         long end = System.currentTimeMillis();
-        log.info("Vocabulary Search took " + (end-start) + "ms");
+        if (log.isDebugEnabled()) {
+            log.info("Vocabulary Search took " + (end - start) + "ms");
+        }
         if (json != null) {
             return json;
         } else {
@@ -196,18 +204,19 @@ public class IndexTermedService {
 
         Parameters params = new Parameters();
         params.add("select", "*");
-/*
+        /*
         params.add("select", "id");
         params.add("select", "type");
         params.add("select", "properties.*");
         params.add("select", "lastModifiedDate");
-        */
+         */
         params.add("where", "graph.id:" + graphId);
         params.add("where", "type.id:" + vocabularyType.name());
         params.add("max", "-1");
 
         return findSingle(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
     }
+
     private @Nullable JsonNode getVocabularyNode(@NotNull UUID graphId, @NotNull VocabularyType vocabularyType) {
 
         Parameters params = new Parameters();

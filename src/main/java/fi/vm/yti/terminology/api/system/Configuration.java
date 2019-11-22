@@ -1,7 +1,6 @@
-package fi.vm.yti.terminology.api.frontend;
+package fi.vm.yti.terminology.api.system;
 
 public class Configuration {
-
     public String codeListUrl;
     public String dataModelUrl;
     public String commentsUrl;

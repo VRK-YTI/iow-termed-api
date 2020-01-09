@@ -1,8 +1,5 @@
 package fi.vm.yti.terminology.api.importapi;
 
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -12,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,10 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
 import fi.vm.yti.terminology.api.model.termed.Graph;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @RestController
 @RequestMapping("/api/v1/export")
+@Tag(name = "Import-Export")
 public class ExportController {
 
     private final FrontendTermedService termedService;
@@ -30,7 +33,8 @@ public class ExportController {
 
     private static final Logger logger = LoggerFactory.getLogger(ExportController.class);
 
-    public ExportController(FrontendTermedService termedService, ExportService exportService) {
+    public ExportController(FrontendTermedService termedService,
+                            ExportService exportService) {
         this.termedService = termedService;
         this.exportService = exportService;
     }
@@ -39,28 +43,29 @@ public class ExportController {
      * export/{vocabularyID}/ Toteutetaan proxy api termed node-trees api:lle, jolle
      * voi antaa parametrina ainakin seuraavat formaatit: application/json
      * text/turtle application/rdf+xml
-     * 
+     * <p>
      * API polku esim: /export/{uuid}?accept=... Mahdollista rakentaa tyyppi export
      * polkuun esim: /export/type/Concept/
-     * 
-     * @param id
+     *
+     * @param terminologyId
      * @return
      */
-    @RequestMapping(value = "/{vocabularyID}", method = GET, produces = { APPLICATION_JSON_VALUE, "application/rdf+xml",
-            "text/turtle" })
+    @Operation(summary = "Export a terminology", description = "Export requested terminology in stated format")
+    @ApiResponse(responseCode = "200", description = "Requested terminology exported in the requested format")
+    @GetMapping(path = "/{terminologyID}", produces = { APPLICATION_JSON_VALUE, "application/rdf+xml", "text/turtle" })
     ResponseEntity<String> export(
-            @ApiParam(value = "Vocabulary identifier (UUID/URI)") @PathVariable("vocabularyID") Object vocId,
-            @ApiParam(value = "Export format JSON, RDF, TURTLE.") @RequestParam(value = "format", required = true) String format) {
-        logger.debug("ExportController uuid:" + vocId + " format:" + format);
+        @Parameter(description = "Terminology identifier (UUID/URI)") @PathVariable("terminologyID") Object terminologyId,
+        @Parameter(description = "Export format JSON, RDF, TURTLE.", example = "JSON") @RequestParam String format) {
+        logger.debug("ExportController uuid:" + terminologyId + " format:" + format);
 
-        ResponseEntity<String>re = null;
+        ResponseEntity<String> re = null;
         UUID id = null;
         // Try to cast incoming as UUID and if fails, assume it is Code ie. name of the
         // vocabulary
         try {
-            id = UUID.fromString((String) vocId);
+            id = UUID.fromString((String) terminologyId);
         } catch (IllegalArgumentException ex) {
-            id = this.resolveCode((String) vocId);
+            id = this.resolveCode((String) terminologyId);
         } catch (Exception e) {
             logger.error("Error fetching vocabulary id", e.getMessage());
             e.printStackTrace();
@@ -83,23 +88,24 @@ public class ExportController {
         return re;
     }
 
-    @RequestMapping(value = "/{vocabularyID}/type/{nodeType}", produces = { APPLICATION_JSON_VALUE,
-            "application/rdf+xml", "text/turtle" }, method = GET)
+    @Operation(summary = "Export certain node types", description = "Export requested node types in stated format from a terminology")
+    @ApiResponse(responseCode = "200", description = "Requested nodes exported in the requested format")
+    @GetMapping(path = "/{terminologyID}/type/{nodeType}", produces = { APPLICATION_JSON_VALUE, "application/rdf+xml", "text/turtle" })
     ResponseEntity<String> export(
-            @ApiParam(value = "Vocabulary identifier (UUID/URI)") @PathVariable("vocabularyID") Object vocId,
-            @ApiParam(value = "Type of requested nodes. (Concept, Collection, Term)") @PathVariable("nodeType") String nodeType,
-            @ApiParam(value = "Export format JSON, RDF, TURTLE.") @RequestParam(value = "format", required = true) String format) {
+        @Parameter(description = "Terminology identifier (UUID/URI)") @PathVariable("terminologyID") Object terminologyId,
+        @Parameter(description = "Type of requested nodes. (Concept, Collection, Term)", example = "Concept") @PathVariable("nodeType") String nodeType,
+        @Parameter(description = "Export format JSON, RDF, TURTLE.", example = "JSON") @RequestParam String format) {
         if (logger.isDebugEnabled()) {
-            logger.debug("ID:" + vocId + " node=" + nodeType + " format:" + format);
+            logger.debug("ID:" + terminologyId + " node=" + nodeType + " format:" + format);
         }
         UUID id = null;
         // Try to cast incoming as UUID and if fails, assume it is Code ie. name of the
         // vocabulary
         try {
-            id = UUID.fromString((String) vocId);
+            id = UUID.fromString((String) terminologyId);
         } catch (IllegalArgumentException ex) {
 
-            id = this.resolveCode((String) vocId);
+            id = this.resolveCode((String) terminologyId);
         } catch (Exception e) {
             logger.error("Error fetching vocabulary id", e.getMessage());
             id = null;
@@ -108,7 +114,7 @@ public class ExportController {
         ResponseEntity<String> re = null;
         // Id resolved, go fetch data
         if (id != null) {
-            if(logger.isDebugEnabled()){
+            if (logger.isDebugEnabled()) {
                 logger.error("ExportController uuid");
             }
             if (format.equalsIgnoreCase("JSON")) {
@@ -128,7 +134,7 @@ public class ExportController {
         UUID rv = null;
         List<Graph> graphs = termedService.getGraphs();
         List<Graph> matchingGraphs = graphs.stream().filter(o -> o.getCode().equalsIgnoreCase((String) code))
-                .collect(Collectors.toList());
+            .collect(Collectors.toList());
 
         List<UUID> idlist = new ArrayList<>();
         matchingGraphs.forEach(g -> {

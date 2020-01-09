@@ -5,13 +5,9 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.embedded.EmbeddedServletContainerFactory;
-import org.springframework.boot.context.embedded.jetty.JettyEmbeddedServletContainerFactory;
-import org.springframework.boot.web.servlet.ErrorPage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.CommonsRequestLoggingFilter;
 
 @Configuration
@@ -26,7 +22,6 @@ public class ElasticHighLevelClientConfig {
 
     @Value("${search.host.port}")
     protected Integer elasticsearchPort;
-
 
     @Bean
     public CommonsRequestLoggingFilter requestLoggingFilter() {

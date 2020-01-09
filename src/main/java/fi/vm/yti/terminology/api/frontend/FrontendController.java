@@ -8,11 +8,13 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,13 +32,19 @@ import fi.vm.yti.terminology.api.model.termed.GenericNodeInlined;
 import fi.vm.yti.terminology.api.model.termed.Graph;
 import fi.vm.yti.terminology.api.model.termed.Identifier;
 import fi.vm.yti.terminology.api.model.termed.MetaNode;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Group;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Organization;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-import static org.springframework.web.bind.annotation.RequestMethod.*;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
+import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 @RestController
 @RequestMapping("/api/v1/frontend")
+@Tag(name = "Frontend")
 public class FrontendController {
 
     private final FrontendTermedService termedService;
@@ -68,13 +76,17 @@ public class FrontendController {
         this.fakeLoginAllowed = fakeLoginAllowed;
     }
 
-    @RequestMapping(value = "/groupManagementUrl", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get YTI Group Management Service URL", description = "Get YTI Group Management Service URL (root URL) from system configuration")
+    @ApiResponse(responseCode = "200", description = "YTI Group Management Service URL (root URL) as a string")
+    @GetMapping(path = "/groupManagementUrl", produces = APPLICATION_JSON_VALUE)
     String getGroupManagementUrl() {
         logger.info("GET /groupManagementUrl requested");
         return groupManagementUrl;
     }
 
-    @RequestMapping(value = "/fakeableUsers", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get list of test users", description = "If impersonating test users is enabled then returns list of test users")
+    @ApiResponse(responseCode = "200", description = "List of test users for impersonating, or empty list if not an development environment")
+    @GetMapping(path = "/fakeableUsers", produces = APPLICATION_JSON_VALUE)
     List<GroupManagementUser> getFakeableUsers() {
         logger.info("GET /fakeableUsers requested");
 
@@ -85,53 +97,76 @@ public class FrontendController {
         }
     }
 
-    @RequestMapping(value = "/namespaceInUse", method = GET, produces = APPLICATION_JSON_VALUE)
-    boolean isNamespaceInUse(@RequestParam String prefix) {
+    @Operation(summary = "Check whether a terminology namespace prefix is in use")
+    @ApiResponse(responseCode = "200", description = "True if prefix is reserved, false if it is free for use with new terminology")
+    @GetMapping(path = "/namespaceInUse", produces = APPLICATION_JSON_VALUE)
+    boolean isNamespaceInUse(@Parameter(description = "Freely selectable namespace part of a terminology, here called \"prefix\"") @RequestParam String prefix) {
         logger.info("GET /namespaceInUse requested with prefix: " + prefix);
         return termedService.isNamespaceInUse(prefix);
     }
 
-    @RequestMapping(value = "/namespaceRoot", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get the static portion of terminology namespaces")
+    @ApiResponse(responseCode = "200", description = "Terminology namespace root, i.e., the prefix for all terminology namespaces")
+    @GetMapping(path = "/namespaceRoot", produces = APPLICATION_JSON_VALUE)
     String getNamespaceRoot() {
         logger.info("GET /namespaceRoot requested");
         return namespaceRoot;
     }
 
-    @RequestMapping(value = "/authenticated-user", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get the currently authenticated use, i.e., the caller")
+    @ApiResponse(responseCode = "200", description = "User object for the caller")
+    @RequestMapping(path = "/authenticated-user", method = GET, produces = APPLICATION_JSON_VALUE)
     YtiUser getUser() {
         logger.info("GET /authenticated-user requested");
         return userProvider.getUser();
     }
 
-    @RequestMapping(value = "/requests", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get list of authorization requests for the current user", description = "Get the currently authenticated user's pending requests for roles for organizations")
+    @ApiResponse(responseCode = "200", description = "The currently authenticated user's pending requests for roles for organizations")
+    @ApiResponse(responseCode = "401", description = "If the caller is not not authenticated user")
+    @RequestMapping(path = "/requests", method = GET, produces = APPLICATION_JSON_VALUE)
     List<GroupManagementUserRequest> getUserRequests() {
         logger.info("GET /requests requested");
         return groupManagementService.getUserRequests();
     }
 
-    @RequestMapping(value = "/request", method = POST, produces = APPLICATION_JSON_VALUE)
-    void sendRequest(@RequestParam UUID organizationId) {
+    @Operation(summary = "Request authorization for a organization", description = "Request to be added to an organization in TERMINOLOGY_EDITOR role")
+    @ApiResponse(responseCode = "200", description = "Request submitted successfully")
+    @ApiResponse(responseCode = "401", description = "If the caller is not not authenticated user")
+    @PostMapping(path = "/request", produces = APPLICATION_JSON_VALUE)
+    void sendRequest(@Parameter(description = "UUID for the organization") @RequestParam UUID organizationId) {
         logger.info("POST /request requested with organizationID: " + organizationId.toString());
         groupManagementService.sendRequest(organizationId);
     }
 
-    @RequestMapping(value = "/vocabulary", method = GET, produces = APPLICATION_JSON_VALUE)
-    GenericNodeInlined getVocabulary(@RequestParam UUID graphId) {
+    @Operation(summary = "Get terminology basic info as JSON")
+    @ApiResponse(responseCode = "200", description = "The requested terminology node data")
+    @GetMapping(path = "/vocabulary", produces = APPLICATION_JSON_VALUE)
+    GenericNodeInlined getVocabulary(@Parameter(description = "ID for the requested terminology") @RequestParam UUID graphId) {
         logger.info("GET /vocabulary requested with graphId: " + graphId.toString());
         return termedService.getVocabulary(graphId);
     }
 
-    @RequestMapping(value = "/vocabularies", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get basic info for all terminologies", description = "Get basic info for termonologies in Termed JSON format. The list may be filtered for INCOMPLETE terminologies.")
+    @Parameter(
+        name = "incomplete",
+        description = "Super users get always all terminologies. Other users see INCOMPLETE terminologies according to their organization " +
+            "roles. If this parameter is set to false no INCOMPLETE terminologies are returned for normal users.")
+    @ApiResponse(responseCode = "200", description = "The basic info for terminologies in unprocessed Termed JSON format")
+    @GetMapping(path = "/vocabularies", produces = APPLICATION_JSON_VALUE)
     JsonNode getVocabularyList(@RequestParam(required = false, defaultValue = "true") boolean incomplete) {
         logger.info("GET /vocabularies requested incomplete=" + incomplete);
         return termedService.getVocabularyList(incomplete);
     }
 
-    @RequestMapping(value = "/vocabulary", method = POST, produces = APPLICATION_JSON_VALUE)
-    UUID createVocabulary(@RequestParam UUID templateGraphId,
-                          @RequestParam String prefix,
-                          @RequestParam(required = false) @Nullable UUID graphId,
-                          @RequestParam(required = false, defaultValue = "true") boolean sync,
+    @Operation(summary = "Create a new terminology")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "The JSON data for the new terminology node")
+    @ApiResponse(responseCode = "200", description = "The ID for the newly created terminology")
+    @PostMapping(path = "/vocabulary", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
+    UUID createVocabulary(@Parameter(description = "The meta model graph for the new terminology") @RequestParam UUID templateGraphId,
+                          @Parameter(description = "The prefix, i.e., freely selectable part of terminology namespace") @RequestParam String prefix,
+                          @Parameter(description = "If given, tries to use the ID for the terminology") @RequestParam(required = false) @Nullable UUID graphId,
+                          @Parameter(description = "Whether to do synchronous creation, i.e., wait for the result. This is recommended.") @RequestParam(required = false, defaultValue = "true") boolean sync,
                           @RequestBody GenericNode vocabularyNode) {
 
         try {
@@ -150,46 +185,62 @@ public class FrontendController {
         }
     }
 
-    @RequestMapping(value = "/vocabulary", method = DELETE, produces = APPLICATION_JSON_VALUE)
-    void deleteVocabulary(@RequestParam UUID graphId) {
+    @Operation(summary = "Delete a terminology")
+    @ApiResponse(responseCode = "200", description = "Terminology deleted")
+    @DeleteMapping(path = "/vocabulary", produces = APPLICATION_JSON_VALUE)
+    void deleteVocabulary(@Parameter(description = "Id for the terminology to be deleted") @RequestParam UUID graphId) {
         logger.info("DELETE /vocabulary requested with graphId: " + graphId.toString());
         termedService.deleteVocabulary(graphId);
     }
 
-    @RequestMapping(value = "/concept", method = GET, produces = APPLICATION_JSON_VALUE)
-    @Nullable GenericNodeInlined getConcept(@RequestParam UUID graphId,
-                                            @RequestParam UUID conceptId) {
+    @Operation(summary = "Get concept basic info as JSON")
+    @ApiResponse(responseCode = "200", description = "The requested concept node data")
+    @GetMapping(path = "/concept", produces = APPLICATION_JSON_VALUE)
+    @Nullable GenericNodeInlined getConcept(@Parameter(description = "Terminology ID") @RequestParam UUID graphId,
+                                            @Parameter(description = "Concept ID") @RequestParam UUID conceptId) {
         logger.info("GET /concept requested with params: graphId: " + graphId.toString() + ", conceptId: " + conceptId.toString());
         return termedService.getConcept(graphId, conceptId);
     }
 
-    @RequestMapping(value = "/collection", method = GET, produces = APPLICATION_JSON_VALUE)
-    GenericNodeInlined getCollection(@RequestParam UUID graphId,
-                                     @RequestParam UUID collectionId) {
+    @Operation(summary = "Get a concept collection as JSON")
+    @ApiResponse(responseCode = "200", description = "The requested concept collection as JSON")
+    @GetMapping(path = "/collection", produces = APPLICATION_JSON_VALUE)
+    GenericNodeInlined getCollection(@Parameter(description = "Terminology ID") @RequestParam UUID graphId,
+                                     @Parameter(description = "Concept collection ID") @RequestParam UUID collectionId) {
         logger.info("GET /collection requested with params: graphId: " + graphId.toString() + ", collectionId: " + collectionId.toString());
         return termedService.getCollection(graphId, collectionId);
     }
 
-    @RequestMapping(value = "/collections", method = GET, produces = APPLICATION_JSON_VALUE)
-    JsonNode getCollectionList(@RequestParam UUID graphId) {
+    @Operation(summary = "Get all concept collections for a terminology")
+    @ApiResponse(responseCode = "200", description = "Concept collections for a terminology as JSON")
+    @GetMapping(path = "/collections", produces = APPLICATION_JSON_VALUE)
+    JsonNode getCollectionList(@Parameter(description = "Terminology ID") @RequestParam UUID graphId) {
         logger.info("GET /collections requested with graphId: " + graphId.toString());
         return termedService.getCollectionList(graphId);
     }
 
-    @RequestMapping(value = "/organizations", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get organization list", description = "Get organizations available at YTI Group Management Service")
+    @ApiResponse(responseCode = "200", description = "The basic info for organizations in unprocessed Termed JSON format")
+    @GetMapping(path = "/organizations", produces = APPLICATION_JSON_VALUE)
     JsonNode getOrganizationList() {
         logger.info("GET /organizations requested");
         return termedService.getNodeListWithoutReferencesOrReferrers(Organization);
     }
 
-    @RequestMapping(value = "/groups", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get information domain list")
+    @ApiResponse(responseCode = "200", description = "Information domain list in unprocessed Termed JSON format")
+    @GetMapping(path = "/groups", produces = APPLICATION_JSON_VALUE)
     JsonNode getGroupList() {
         logger.info("GET /groups requested");
         return termedService.getNodeListWithoutReferencesOrReferrers(Group);
     }
 
-    @RequestMapping(value = "/modify", method = POST, produces = APPLICATION_JSON_VALUE)
-    void updateAndDeleteInternalNodes(@RequestParam(required = false, defaultValue = "true") boolean sync,
+    @Operation(summary = "Make a bulk modification request", description = "Update and/or delete several nodes")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "JSON for the bulk request containing nodes to be updated or deleted")
+    @ApiResponse(responseCode = "200", description = "The operation was successful (valid if synchronous)")
+    @PostMapping(path = "/modify", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+    void updateAndDeleteInternalNodes(@Parameter(description = "Whether to do synchronous modification, i.e., wait for the result. This is recommended.")
+                                      @RequestParam(required = false, defaultValue = "true") boolean sync,
                                       @RequestBody GenericDeleteAndSave deleteAndSave) {
         logger.info("POST /modify requested with deleteAndSave: delete ids: ");
         for (int i = 0; i < deleteAndSave.getDelete().size(); i++) {
@@ -203,9 +254,13 @@ public class FrontendController {
         termedService.bulkChange(deleteAndSave, sync);
     }
 
-    @RequestMapping(value = "/remove", method = DELETE, produces = APPLICATION_JSON_VALUE)
-    void removeNodes(@RequestParam boolean sync,
-                     @RequestParam boolean disconnect,
+    @Operation(summary = "Delete several nodes", description = "May be used, e.g., to delete a concept and its terms in one request")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "JSON list of all the node IDs to delete")
+    @ApiResponse(responseCode = "200", description = "Operation was successful (valid if synchronous)")
+    @DeleteMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+    void removeNodes(@Parameter(description = "Whether to do synchronous modification, i.e., wait for the result. This is recommended.")
+                     @RequestParam boolean sync,
+                     @Parameter(description = "Whether to disconnect removed nodes from other ones") @RequestParam boolean disconnect,
                      @RequestBody List<Identifier> identifiers) {
         logger.info("DELETE /remove requested with params: sync: " + sync + ", disconnect: " + disconnect + ", identifier ids: ");
         for (final Identifier ident : identifiers) {
@@ -214,8 +269,10 @@ public class FrontendController {
         termedService.removeNodes(sync, disconnect, identifiers);
     }
 
-    @RequestMapping(value = "/types", method = GET, produces = APPLICATION_JSON_VALUE)
-    List<MetaNode> getTypes(@RequestParam(required = false) UUID graphId) {
+    @Operation(summary = "Get meta model")
+    @ApiResponse(responseCode = "200", description = "Meta model nodes as JSON")
+    @GetMapping(path = "/types", produces = APPLICATION_JSON_VALUE)
+    List<MetaNode> getTypes(@Parameter(description = "If given then return meta model for a specific graph") @RequestParam(required = false) UUID graphId) {
         if (graphId != null) {
             logger.info("GET /types requested with graphId: " + graphId.toString());
         } else {
@@ -224,20 +281,35 @@ public class FrontendController {
         return termedService.getTypes(graphId);
     }
 
-    @RequestMapping(value = "/graphs", method = GET, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get all graphs from Termed")
+    @ApiResponse(responseCode = "200", description = "Basic info for all graphs, including terminology graph, meta model graph, information domain graph and organization graph")
+    @GetMapping(path = "/graphs", produces = APPLICATION_JSON_VALUE)
     List<Graph> getGraphs() {
         logger.info("GET /graphs requested");
         return termedService.getGraphs();
     }
 
-    @RequestMapping(value = "/graphs/{id}", method = GET, produces = APPLICATION_JSON_VALUE)
-    Graph getGraph(@PathVariable("id") UUID graphId) {
+    @Operation(summary = "Get basic info for a graph")
+    @ApiResponse(responseCode = "200", description = "Basic info for a graph")
+    @GetMapping(path = "/graphs/{id}", produces = APPLICATION_JSON_VALUE)
+    Graph getGraph(@Parameter(description = "Id for the graph") @PathVariable("id") UUID graphId) {
         logger.info("GET /graphs/{id} requested with graphId: " + graphId.toString());
         return termedService.getGraph(graphId);
     }
 
+    /*
     // TODO: Remove this and re-map the Ng variant.
-    @RequestMapping(value = "/searchConcept", method = POST, produces = APPLICATION_JSON_VALUE)
+    @Operation(summary = "Search for concepts", description = "Make either a Elasticsearch query or a concept search query")
+    @ApiResponse(responseCode = "200", description = "Concept search result. Format depends on the request object.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        description = "Either Elasticsearch query as JSON, or a concept search request object as JSON",
+        required = true,
+        content = {
+            @Content(schema = @Schema(implementation = ConceptSearchRequest.class)),
+            @Content(schema = @Schema(implementation = String.class))
+        }
+    )
+    @PostMapping(path = "/searchConcept", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
     String searchConcept(@RequestBody JsonNode query) {
         logger.info("POST /searchConcept requested with query: " + query.toString());
         JsonNode esQuery = query.get("query");
@@ -252,17 +324,22 @@ public class FrontendController {
             throw new RuntimeException(e);
         }
     }
+    */
 
     // TODO: Re-map this to /searchConcept when the original ES proxy functionality is removed.
-    @RequestMapping(value = "/searchConceptNg", method = POST, produces = APPLICATION_JSON_VALUE)
-    @ResponseBody
+    @Operation(summary = "Search for concepts", description = "Make a concept search query based on query object")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Concept search query object as JSON")
+    @ApiResponse(responseCode = "200", description = "Concept search response container object as JSON")
+    @PostMapping(path = "/searchConcept", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
     ConceptSearchResponse searchConceptNg(@RequestBody ConceptSearchRequest request) {
         logger.info("POST /searchConcept requested with query: " + request.toString());
         return elasticSearchService.searchConcept(request);
     }
 
-    @RequestMapping(value = "/searchTerminology", method = POST, produces = APPLICATION_JSON_VALUE)
-    @ResponseBody
+    @Operation(summary = "Search for terminologies", description = "Make a terminology search query based on query object")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Terminology search query object as JSON")
+    @ApiResponse(responseCode = "200", description = "Terminology search response container object as JSON")
+    @RequestMapping(value = "/searchTerminology", method = POST, produces = APPLICATION_JSON_VALUE)    
     TerminologySearchResponse searchTerminology(@RequestBody TerminologySearchRequest request) {
         logger.info("POST /searchTerminology requested with query: " + request.toString());
         return elasticSearchService.searchTerminology(request);

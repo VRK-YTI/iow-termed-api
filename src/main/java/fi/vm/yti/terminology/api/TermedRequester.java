@@ -130,6 +130,7 @@ public class TermedRequester {
                                                               @NotNull Class<TResponse> responseType,
                                                               @Nullable TRequest body,
                                                               @NotNull TermedContentType contentType) {
+        logger.info("exchange with contentType:"+contentType.getContentType());
         return exchange(path, method, parameters, responseType, body, termedUser, termedPassword, contentType);
     }
 
@@ -169,7 +170,7 @@ public class TermedRequester {
                                                               @NotNull String password,
                                                               @NotNull TermedContentType contentType) {
         logger.debug("Termed request: " + method.toString() + ":" + path);
-        return mapExceptions(() -> restTemplate.exchange(createUrl(path, parameters), method, new HttpEntity<>(body, createHeaders(username, password, contentType)), responseType).getBody());
+        return mapExceptions(() -> restTemplate.exchange(createUrl(path, parameters), method, new HttpEntity<>(body, createHeaders(username, password, contentType)), responseType).getBody());        
     }
 
     public <TRequest, TResponse> @Nullable TResponse exchange(@NotNull String path,
@@ -229,6 +230,8 @@ public class TermedRequester {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.AUTHORIZATION, createAuthorizationHeaderValue(username, password));
         headers.add(HttpHeaders.ACCEPT, contentType.getContentType());
+        headers.add(HttpHeaders.CONTENT_TYPE,contentType.getContentType());
+        headers.add(HttpHeaders.ACCEPT_CHARSET,"utf-8");
         return headers;
     }
 

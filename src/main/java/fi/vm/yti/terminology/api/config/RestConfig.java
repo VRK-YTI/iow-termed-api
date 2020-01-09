@@ -1,7 +1,8 @@
 package fi.vm.yti.terminology.api.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
+import com.fasterxml.jackson.databind.util.StdDateFormat;
+
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.HttpClients;
@@ -34,7 +35,7 @@ class RestConfig {
     RestConfig(ObjectMapper objectMapper) {
         objectMapper.setSerializationInclusion(NON_NULL);
         objectMapper.disable(WRITE_DATES_AS_TIMESTAMPS);
-        objectMapper.setDateFormat(new ISO8601DateFormat());
+        objectMapper.setDateFormat(new StdDateFormat().withColonInTimeZone(true));
         this.objectMapper = objectMapper;
     }
 

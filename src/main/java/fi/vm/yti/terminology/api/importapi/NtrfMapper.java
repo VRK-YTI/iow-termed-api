@@ -32,6 +32,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jms.core.JmsMessagingTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpServerErrorException;
 
 import fi.vm.yti.security.AuthenticatedUserProvider;
@@ -1802,12 +1803,14 @@ public class NtrfMapper {
                     logger.debug("  Parsing note-string:" + de.toString());
                 String str = (String) de;
                 // trim and add space
-                if (noteString.isEmpty())
-                    noteString = noteString.concat(str.trim() + " ");
-                else if (noteString.endsWith(" ")) {
-                    noteString = noteString.concat(str.trim() + " ");
-                } else // Add space befor and after
-                    noteString = noteString.concat(" " + str.trim() + " ");
+                if (noteString.isEmpty()){
+                    noteString = str;
+                } else {
+                    noteString = noteString.concat(str);
+                }
+//                noteString = StringEscapeUtils.unescapeXml(noteString);
+                // Remove newline from string
+                noteString = noteString.replace("\n", "");
             } else if (de instanceof SOURF) {
                 if (((SOURF) de).getContent() != null && ((SOURF) de).getContent().size() > 0) {
                     handleSOURF((SOURF) de, null, termProperties, vocabulary);
@@ -1883,15 +1886,14 @@ public class NtrfMapper {
                     if (linkRef.startsWith("href:")) {
                         linkRef = linkRef.substring(5);
                     }
-                    noteString = noteString.concat("<a href='" + linkRef + "' data-type='external'>"
+                    noteString = noteString.trim().concat("<a href='" + linkRef + "' data-type='external'>"
                             + lc.getContent().get(0).toString().trim() + "</a> ");
-                    System.out.println("Add LINK:" + linkRef);
+                    logger.info("Add LINK:" + linkRef);
                 }
             } else if (de instanceof JAXBElement) {
                 JAXBElement j = (JAXBElement) de;
                 if (logger.isDebugEnabled())
                     logger.debug("  Parsing note-elem:" + j.getName());
-                System.out.println("  Parsing note-elem:" + j.getName());
 
                 if (j.getName().toString().equalsIgnoreCase("HOGR")) {
                     noteString = noteString.trim() + " (" + j.getValue().toString() + ")";
@@ -1903,14 +1905,14 @@ public class NtrfMapper {
                     // Add newline
                     noteString = noteString + "\n";
                 } else {
-                    System.out.println("  Unhandled note-class " + j.getName().toString());
+                    logger.error("  JABX-element Unhandled note-class " + j.getName().toString());
                     // statusList.put(currentRecord,
                     // new StatusMessage(currentRecord, "Unhandled note-class " +
                     // j.getName().toString()));
                     statusList.add(new StatusMessage(currentRecord, "Unhandled note-class " + j.getName().toString()));
                 }
             } else {
-                System.out.println("Unhandled note-class " + de.getClass().getTypeName());
+                logger.error("Unhandled note-class " + de.getClass().getTypeName());
             }
 
             if (logger.isDebugEnabled())
@@ -1920,10 +1922,11 @@ public class NtrfMapper {
 
         // Add note if exist.
         if (!noteString.isEmpty()) {
-            System.out.println("parseNOTE str:" + noteString);
-            noteString = noteString.replaceAll(" , ", ", ");
-            noteString = noteString.replaceAll(" . ", ". ");
-            Attribute att = new Attribute(lang, noteString.trim());
+            noteString = noteString.trim();
+            // Replace multiple spaces with one
+            noteString = noteString.replaceAll("( )+", " ");
+            logger.info("handleNote() Adding note:"+noteString);
+            Attribute att = new Attribute(lang, noteString);
             addProperty("note", parentProperties, att);
             return att;
         } else

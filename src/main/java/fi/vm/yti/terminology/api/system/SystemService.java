@@ -1,64 +1,23 @@
 package fi.vm.yti.terminology.api.system;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
-import org.jsoup.Jsoup;
-import org.jsoup.safety.Whitelist;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import fi.vm.yti.security.AuthenticatedUserProvider;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import fi.vm.yti.terminology.api.TermedRequester;
-import fi.vm.yti.terminology.api.frontend.FrontendGroupManagementService;
-import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
-import fi.vm.yti.terminology.api.index.IndexElasticSearchService;
-import fi.vm.yti.terminology.api.model.integration.ConceptSuggestionRequest;
-import fi.vm.yti.terminology.api.model.integration.ConceptSuggestionResponse;
-import fi.vm.yti.terminology.api.model.integration.ContainersResponse;
-import fi.vm.yti.terminology.api.model.integration.IntegrationContainerRequest;
-import fi.vm.yti.terminology.api.model.integration.IntegrationResourceRequest;
-import fi.vm.yti.terminology.api.model.integration.Meta;
-import fi.vm.yti.terminology.api.model.integration.ResponseWrapper;
-import fi.vm.yti.terminology.api.model.termed.Attribute;
-import fi.vm.yti.terminology.api.model.termed.GenericDeleteAndSave;
-import fi.vm.yti.terminology.api.model.termed.GenericNode;
-import fi.vm.yti.terminology.api.model.termed.GenericNodeInlined;
-import fi.vm.yti.terminology.api.model.termed.Graph;
-import fi.vm.yti.terminology.api.model.termed.Identifier;
-import fi.vm.yti.terminology.api.model.termed.MetaNode;
-import fi.vm.yti.terminology.api.model.termed.TypeId;
-import fi.vm.yti.terminology.api.util.ElasticRequestUtils;
-import fi.vm.yti.terminology.api.util.JsonUtils;
+import fi.vm.yti.terminology.api.util.Parameters;
+
+import static org.springframework.http.HttpMethod.GET;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class SystemService {
@@ -73,7 +32,7 @@ public class SystemService {
         this.objectMapper = objectMapper;
     }
 
-    ResponseEntity<String> countStatistics() {
+    ResponseEntity<String> countStatistics(boolean full) {
 
         if (logger.isDebugEnabled()) {
             logger.debug("GET /count requested.");
@@ -81,17 +40,99 @@ public class SystemService {
 
         int terminologies = countTerminologies();
         int concepts = countConcepts();
-        return new ResponseEntity<>("{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts + " }",
-                HttpStatus.OK);
+        if (full) {
+            String terminologyStatistics = countStatistics();
+            return new ResponseEntity<>("{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts
+                    + ", \"statistics:\"" + terminologyStatistics + " }", HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(
+                    "{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts + " }", HttpStatus.OK);
+        }
     }
 
     private int countTerminologies() {
         int rv = 0;
+        String url = "/node-count?where=type.id:TerminologicalVocabulary";
+        String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
+        logger.info("countTerminologies rv=" + count);
+        if (count != null) {
+            rv = Integer.parseInt(count);
+        }
         return rv;
     }
 
     private int countConcepts() {
         int rv = 0;
+        String url = "/node-count/?where=type.id:Concept";
+        String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
+        logger.info("countConcepts rv=" + count);
+        if (count != null) {
+            rv = Integer.parseInt(count);
+        }
         return rv;
+    }
+
+    private int countConcepts(UUID graphId) {
+        int rv = 0;
+        String url = "/node-count/?where=type.id:Concept AND type.graph.id:" + graphId;
+        String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
+        logger.info("countConcepts rv=" + count);
+        if (count != null) {
+            rv = Integer.parseInt(count);
+        }
+        return rv;
+    }
+
+    private String countStatistics() {
+        String rv = null;
+        logger.info("countStatistics");
+        List<String> statistics = new ArrayList<>();
+        String url = "/node-trees?select=id,uri&where=type.id:TerminologicalVocabulary";
+        String terminologies = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
+        if (terminologies != null) {
+            try {
+                iduri[] ids = objectMapper.readValue(terminologies, iduri[].class);
+                for (iduri o : ids) {
+                    System.out.println("uri:" + o.getUri() + ",  id:" + o.getId());
+                    statistics.add("{\"uri:\"" + o.getUri() + "\", \"count:\"" + countConcepts(o.getId())+"}");
+                    logger.info("countConcepts for " + o.getUri() + " conceptCount:" + countConcepts(o.getId()));
+                }
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
+            rv = statistics.toString();
+        }
+        return rv;
+    }
+
+    private static class iduri {
+        UUID id;
+        String uri;
+
+        // for jackson
+        private iduri() {
+            this(null, null);
+        };
+
+        public iduri(UUID id, String uri) {
+            this.id = id;
+            this.uri = uri;
+        }
+
+        public void setId(UUID id) {
+            this.id = id;
+        }
+
+        public UUID getId() {
+            return id;
+        }
+
+        public void setUri(String uri) {
+            this.uri = uri;
+        }
+
+        public String getUri() {
+            return uri;
+        }
     }
 }

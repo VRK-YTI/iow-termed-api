@@ -48,7 +48,7 @@ public class TerminologyQueryFactory {
     public SearchRequest createQuery(TerminologySearchRequest request,
                                      boolean superUser,
                                      Set<String> privilegedOrganizations) {
-        return createQuery(request.getQuery(), Collections.EMPTY_SET, pageSize(request), pageFrom(request), superUser, privilegedOrganizations);
+        return createQuery(request.getQuery(), Collections.emptySet(), pageSize(request), pageFrom(request), superUser, privilegedOrganizations);
     }
 
     public SearchRequest createQuery(TerminologySearchRequest request,

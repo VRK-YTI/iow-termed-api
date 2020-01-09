@@ -1,11 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <springProfile name="dev,test,prod">
-        <include resource="org/springframework/boot/logging/logback/base.xml"/>
         <logger name="org.apache" level="WARN"/>
         <logger name="org.springframework" level="INFO"/>
         <logger name="fi.vm" level="INFO"/>
         <logger name="fi.vm.yti.security" level="INFO"/>
+        <property name="SERVICE_NAME" value="yti-terminology-api"/>
+        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <timeZone>UTC</timeZone>
+                    </timestamp>
+                    <pattern>
+                        <pattern>
+                            {
+                            "severity": "%level",
+                            "service": "${SERVICE_NAME:-}",
+                            "trace": "%X{X-B3-TraceId:-}",
+                            "span": "%X{X-B3-SpanId:-}",
+                            "parent": "%X{X-B3-ParentSpanId:-}",
+                            "exportable": "%X{X-Span-Export:-}",
+                            "pid": "${PID:-}",
+                            "thread": "%thread",
+                            "class": "%logger{40}",
+                            "rest": "%message"
+                            }
+                        </pattern>
+                    </pattern>
+                </providers>
+            </encoder>
+        </appender>
+        <root level="WARN">
+            <appender-ref ref="STDOUT"/>
+        </root>
     </springProfile>
     <springProfile name="local,docker">
         <include resource="org/springframework/boot/logging/logback/base.xml"/>

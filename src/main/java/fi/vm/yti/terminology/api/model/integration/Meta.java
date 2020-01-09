@@ -1,22 +1,23 @@
  package fi.vm.yti.terminology.api.model.integration;
 
- import com.fasterxml.jackson.annotation.JsonInclude;
- import com.fasterxml.jackson.annotation.JsonInclude.Include;
- import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
- import io.swagger.annotations.ApiModel;
  import java.text.ParseException;
  import java.util.Date;
  import javax.xml.bind.annotation.XmlType;
  import org.slf4j.Logger;
  import org.slf4j.LoggerFactory;
  
- @XmlType(
-    propOrder = {"code", "message", "pageSize", "from", "resultCount", "totalResults", "after", "afterResourceUrl", "nextPage"}
- )
- @ApiModel(
-    value = "Meta",
-    description = "Meta information model for API responses."
- )
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.databind.util.StdDateFormat;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@XmlType(
+   propOrder = {"code", "message", "pageSize", "from", "resultCount", "totalResults", "after", "afterResourceUrl", "nextPage"}
+)
+@Schema(
+    description = "Meta information model for API responses"
+)
  @JsonInclude(Include.NON_EMPTY)
  public class Meta {
     private static final Logger LOG = LoggerFactory.getLogger(Meta.class);
@@ -35,14 +36,21 @@
     public Meta() {
     }
  
-    public Meta(Integer code, Integer pageSize, Integer from, String after) {
+    public Meta(Integer code,
+                Integer pageSize,
+                Integer from,
+                String after) {
        this.code = code;
        this.pageSize = pageSize;
        this.from = from;
        this.after = parseAfterFromString(after);
     }
  
-    public Meta(Integer code, Integer pageSize, Integer from, String after, String entityIdentifier) {
+    public Meta(Integer code,
+                Integer pageSize,
+                Integer from,
+                String after,
+                String entityIdentifier) {
        this.code = code;
        this.pageSize = pageSize;
        this.from = from;
@@ -50,7 +58,12 @@
        this.entityIdentifier = entityIdentifier;
     }
  
-    public Meta(Integer code, Integer pageSize, Integer from, String after, String entityIdentifier, String nonTranslatableMessage) {
+    public Meta(Integer code,
+                Integer pageSize,
+                Integer from,
+                String after,
+                String entityIdentifier,
+                String nonTranslatableMessage) {
        this.code = code;
        this.pageSize = pageSize;
        this.from = from;
@@ -147,7 +160,7 @@
  
     public static Date parseAfterFromString(String after) {
        if (after != null) {
-          ISO8601DateFormat dateFormat = new ISO8601DateFormat();
+            StdDateFormat dateFormat = new StdDateFormat().withColonInTimeZone(true);
  
           try {
              return dateFormat.parse(after);

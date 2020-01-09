@@ -49,8 +49,6 @@ public class ImportStatusMessageTest {
             jme.printStackTrace();
         } catch(JsonProcessingException jex){
             jex.printStackTrace();
-        } catch(IOException ioe){
-            ioe.printStackTrace();
         }
     }
 }

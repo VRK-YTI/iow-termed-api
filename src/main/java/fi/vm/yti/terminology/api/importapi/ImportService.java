@@ -40,6 +40,27 @@ import java.util.UUID;
 @EnableJms
 public class ImportService {
 
+    public static final class ImportResponse {
+        private String jobtoken;
+
+        public ImportResponse(final String jobtoken) {
+            this.jobtoken = jobtoken;
+        }
+
+        public String getJobtoken() {
+            return jobtoken;
+        }
+
+        public void setJobtoken(final String jobtoken) {
+            this.jobtoken = jobtoken;
+        }
+
+        @Override
+        public String toString() {
+            return "{\"jobtoken\":\"" + jobtoken + "\"}";
+        }
+    }
+
     private final FrontendGroupManagementService groupManagementService;
     private final FrontendTermedService termedService;
     private final AuthenticatedUserProvider userProvider;
@@ -154,7 +175,7 @@ public class ImportService {
             rv = "{\"operation\":\""+operationId+"\", \"error\":\"incoming file type  is wrong\"}";
             return new ResponseEntity<>( rv, HttpStatus.BAD_REQUEST);
         }
-        rv = "{\"jobtoken\":\"" + operationId + "\"}";
+        rv = new ImportResponse(operationId.toString()).toString();
         // Handle incoming xml
         try {
             ytiMQService.setStatus(YtiMQService.STATUS_PREPROCESSING, operationId.toString(), userProvider.getUser().getId().toString(), vocabulary.getUri(),"Validating");

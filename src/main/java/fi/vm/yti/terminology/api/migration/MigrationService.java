@@ -21,6 +21,8 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -28,12 +30,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpServerErrorException;
 
 import fi.vm.yti.security.AuthenticatedUserProvider;
+import fi.vm.yti.terminology.api.TermedContentType;
 import fi.vm.yti.terminology.api.TermedRequester;
 import fi.vm.yti.terminology.api.model.termed.GenericDeleteAndSave;
+import fi.vm.yti.terminology.api.model.termed.GenericDeleteModifyAndSave;
 import fi.vm.yti.terminology.api.model.termed.GenericNode;
 import fi.vm.yti.terminology.api.model.termed.Graph;
 import fi.vm.yti.terminology.api.model.termed.Identifier;
@@ -69,15 +74,20 @@ public class MigrationService {
     public void deleteVocabularyGraph(UUID graphId) {
         log.info("deleteVocabularyGraph: graphId=" + graphId);
         if (findGraph(graphId) != null) {
-            removeNodes(true, false, graphId, getAllNodeIdentifiers(graphId));
-            log.info("deleteVocabularyGraph: after nodes removed getTypes=" + getTypes(graphId));
-            removeTypes(graphId, getTypes(graphId));
-            log.info("deleteVocabularyGraph: after types removed");
             deleteGraph(graphId);
         }
     }
 
-    private void deleteGraph(UUID graphId) {
+    public void deleteGraph(UUID graphId) {
+        log.debug("Delete graph:"+graphId+" nodes");
+        // First delete nodes 
+        Parameters params = new Parameters();
+        params.add("disconnect", "true");
+        termedRequester.exchange("/graphs/" + graphId+"/nodes", DELETE, Parameters.empty(), String.class);
+        log.debug("Delete graph:"+graphId+" types");
+        termedRequester.exchange("/graphs/" + graphId+"/types", DELETE, Parameters.empty(), String.class);
+        // Then graph
+        log.debug("Delete graph:"+graphId);
         termedRequester.exchange("/graphs/" + graphId, DELETE, Parameters.empty(), String.class);
     }
 
@@ -112,13 +122,20 @@ public class MigrationService {
         return rv;
     }
 
+    /**
+     * 
+     * @param sync
+     * @param disconnect
+     * @param graphId
+     * @param identifiers
+     */
     public void removeNodes(boolean sync, boolean disconnect, UUID graphId, List<Identifier> identifiers) {
         Parameters params = new Parameters();
         params.add("batch", "true");
         params.add("disconnect", Boolean.toString(disconnect));
         params.add("sync", Boolean.toString(sync));
         List<UUID> idlist = identifiers.stream().map(Identifier::getId).collect(Collectors.toList());
-        log.info("RemoveNodes identifiers:" + idlist);
+        log.info("RemoveNodes graph:" + graphId + " identifiers:" + idlist);
         identifiers.forEach(id -> {
             if (id.getType() != null && id.getId() != null) {
                 GenericNode n = getNode(id.getId());
@@ -146,6 +163,19 @@ public class MigrationService {
         params.add("sync", "false");
 
         this.termedRequester.exchange("/nodes", POST, params, String.class, deleteAndSave);
+    }
+
+    /**
+     * DELETE /api/graphs/{graphId}/node-ids tai vain yhdelle tyypille DELETE
+     * /api/graphs/{graphId}/types/{typeId}/node-ids
+     */
+    public void regeneratieIds(UUID graphId) {
+
+        Parameters params = new Parameters();
+
+        String rv = null;
+        termedRequester.exchange("/graphs/" + graphId + "/node-ids", DELETE, params, String.class, rv);
+        log.info("regenerateIds for " + graphId.toString() + " returned:" + rv);
     }
 
     public @Nullable MetaNode findType(TypeId typeId) {
@@ -210,7 +240,9 @@ public class MigrationService {
 
         Parameters params = new Parameters();
         params.add("batch", "true");
-        log.info("UpdateTypes-send into termed graphId=" + graphId.toString());
+        if (log.isDebugEnabled()) {
+            log.debug("UpdateTypes-send into termed graphId=" + graphId.toString());
+        }
         termedRequester.exchange("/graphs/" + graphId + "/types", POST, params, String.class, metaNodes);
     }
 
@@ -304,15 +336,14 @@ public class MigrationService {
         Parameters params = new Parameters();
         params.add("changeset", "true");
         try {
-            this.termedRequester.exchange("/graphs/"+g.getId(), PUT, params, String.class, g);
+            this.termedRequester.exchange("/graphs/" + g.getId(), PUT, params, String.class, g);
         } catch (HttpServerErrorException ex) {
-            log.error("Incoming update list contains:"+g.getUri()+" id:"+g.getId());
-            log.error("Update failed:"+ex.getResponseBodyAsString());
+            log.error("Incoming update list contains:" + g.getUri() + " id:" + g.getId());
+            log.error("Update failed:" + ex.getResponseBodyAsString());
             rv = false;
         }
         return rv;
     }
-
 
     public void updateNodesWithJson(Resource resource) {
         try {
@@ -345,11 +376,33 @@ public class MigrationService {
     }
 
     public List<GenericNode> getAllNodes(UUID graphId) {
+        Parameters params = new Parameters();
+        params.add("max", "-1");
         String url = "/graphs/" + graphId + "/nodes/";
-        List<GenericNode> result = termedRequester.exchange(url, GET, Parameters.empty(),
+        List<GenericNode> result = termedRequester.exchange(url, GET, params,
                 new ParameterizedTypeReference<List<GenericNode>>() {
                 });
 
+        return result != null ? result : emptyList();
+    }
+
+    public List<GenericNode> getTerminologyNode(UUID graphId) {
+        return getAllTypedNodes(graphId, "TerminologicalVocabulary");
+    }
+
+    public List<GenericNode> getAllTerms(UUID graphId) {
+        return getAllTypedNodes(graphId, "Term");
+    }
+
+    public List<GenericNode> getAllConcepts(UUID graphId) {
+        return getAllTypedNodes(graphId, "Concept");
+    }
+
+    public List<GenericNode> getAllTypedNodes(UUID graphId, String type) {
+        String url = "/graphs/" + graphId + "/types/" + type + "/nodes/";
+        List<GenericNode> result = termedRequester.exchange(url, GET, Parameters.empty(),
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
         return result != null ? result : emptyList();
     }
 
@@ -401,18 +454,55 @@ public class MigrationService {
         return node;
     }
 
-    public boolean updateAndDeleteInternalNodes(GenericDeleteAndSave deleteAndSave, boolean sync) {
+    public boolean updateAndDeleteInternalNodes(GenericDeleteModifyAndSave operation, boolean sync) {
         boolean rv = true;
         Parameters params = new Parameters();
         params.add("changeset", "true");
         params.add("sync", String.valueOf(sync));
         try {
-            this.termedRequester.exchange("/nodes", POST, params, String.class, deleteAndSave);
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+            log.debug("Update:" + mapper.writeValueAsString(operation));
+            this.termedRequester.exchange("/nodes", POST, params, String.class, mapper.writeValueAsString(operation),
+                    TermedContentType.JSON);
         } catch (HttpServerErrorException ex) {
-            log.error("Incoming update list contains:"+deleteAndSave.getSave().size()+" items");
-            log.error("Update failed:"+ex.getResponseBodyAsString());
+            log.error("Incoming update list contains:" + operation.getSave().size() + " items");
+            log.error("Update failed:" + ex.getResponseBodyAsString());
+            rv = false;
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            log.error("Incoming update list contains:" + operation.getPatch().size() + " items");
+            log.error("Update failed:" + e.getMessage());
             rv = false;
         }
         return rv;
     }
+
+    public boolean updateAndDeleteInternalNodes(UUID graphId, GenericDeleteModifyAndSave operation) {
+        boolean rv = true;
+        Parameters params = new Parameters();
+        params.add("changeset", "true");
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+            log.debug("Update graph:" + graphId + "  value:" + mapper.writeValueAsString(operation));
+            String path = ("/graphs/" + graphId + "/nodes/");
+            HttpMethod method = POST;
+            String body = mapper.writeValueAsString(operation);
+            TermedContentType contentType = TermedContentType.JSON;
+            termedRequester.exchange(path, method, params, String.class, body, contentType);
+        } catch (HttpServerErrorException ex) {
+            log.error("Incoming update list contains:" + operation.getSave().size() + " items");
+            log.error("Update failed:" + ex.getResponseBodyAsString());
+            rv = false;
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            log.error("Incoming update list contains:" + operation.getPatch().size() + " items");
+            log.error("Update failed:" + e.getMessage());
+            rv = false;
+        }
+
+        return rv;
+    }
+
 }

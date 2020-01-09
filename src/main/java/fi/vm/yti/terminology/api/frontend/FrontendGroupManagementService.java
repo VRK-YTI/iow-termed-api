@@ -1,6 +1,7 @@
 package fi.vm.yti.terminology.api.frontend;
 
 import fi.vm.yti.security.AuthenticatedUserProvider;
+import fi.vm.yti.security.AuthorizationException;
 import fi.vm.yti.security.Role;
 import fi.vm.yti.security.YtiUser;
 import fi.vm.yti.terminology.api.util.Parameters;
@@ -51,27 +52,27 @@ public class FrontendGroupManagementService {
         YtiUser user = userProvider.getUser();
 
         if (user.isAnonymous()) {
-            throw new RuntimeException("User not authenticated");
+            throw new AuthorizationException("User not authenticated");
         }
 
-        String url = groupManagementUrl + "/public-api/requests" + Parameters.single("email", user.getEmail());
+        String url = groupManagementUrl + "/private-api/requests" + Parameters.single("userId", user.getId().toString());
         return restTemplate.exchange(url, GET, null, new ParameterizedTypeReference<List<GroupManagementUserRequest>>() {}).getBody();
     }
 
-    void sendRequest(UUID organizationId) {
+    void sendRequest(final UUID organizationId) {
 
         YtiUser user = userProvider.getUser();
 
         if (user.isAnonymous()) {
-            throw new RuntimeException("User not authenticated");
+            throw new AuthorizationException("User not authenticated");
         }
 
         Parameters parameters = new Parameters();
-        parameters.add("email", user.getEmail());
+        parameters.add("userId", user.getId().toString());
         parameters.add("role", Role.TERMINOLOGY_EDITOR.toString());
         parameters.add("organizationId", organizationId.toString());
 
-        String url = groupManagementUrl + "/public-api/request" + parameters;
+        String url = groupManagementUrl + "/private-api/request" + parameters;
         restTemplate.exchange(url, POST, null, String.class);
     }
 

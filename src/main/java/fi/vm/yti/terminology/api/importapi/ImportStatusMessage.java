@@ -107,8 +107,6 @@ public class ImportStatusMessage implements Serializable
             return mapper.readValue(objStr, ImportStatusMessage.class);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             e.printStackTrace();
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
         }
         return null;
     }

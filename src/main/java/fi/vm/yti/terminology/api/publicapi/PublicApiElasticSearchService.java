@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.jsoup.Jsoup;
@@ -111,7 +112,9 @@ public class PublicApiElasticSearchService {
         NStringEntity body = new NStringEntity(queryBuilder.toString(), ContentType.APPLICATION_JSON);
 
         try {
-            Response response = esRestClient.performRequest("GET", endpoint, Collections.emptyMap(), body);
+            Request request = new Request("GET", endpoint);
+            request.setEntity(body);
+            Response response = esRestClient.performRequest(request);
             ObjectMapper om = new ObjectMapper();
             return getAsPublicApiConcepts(status, responseContentAsJson(om, response));
         } catch (IOException e) {

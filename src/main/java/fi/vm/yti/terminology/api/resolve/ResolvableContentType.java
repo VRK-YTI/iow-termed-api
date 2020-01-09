@@ -1,5 +1,7 @@
 package fi.vm.yti.terminology.api.resolve;
 
+import java.util.Arrays;
+
 import org.springframework.util.StringUtils;
 
 public enum ResolvableContentType {
@@ -7,7 +9,8 @@ public enum ResolvableContentType {
     HTML("text/html"),
     JSON("application/json"),
     JSON_LD("application/ld+json"),
-    RDF_XML("application/rdf+xml");
+    RDF_XML("application/rdf+xml"),
+    RDF_TURTLE("text/turtle");
 
     private final String mediaType;
 
@@ -33,6 +36,10 @@ public enum ResolvableContentType {
                     }
                 }
             }
+        }
+
+        if (contentTypes.length == 0 || Arrays.stream(contentTypes).anyMatch(type -> "*/*".equals(type))) {
+            return JSON;
         }
 
         throw new RuntimeException("Unsupported content types: " + String.join(", ", contentTypes));

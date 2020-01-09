@@ -6,6 +6,7 @@ public class Configuration {
     public String commentsUrl;
     public String groupmanagementUrl;
     public boolean messagingEnabled;
+    public String namespaceRoot;
     public String env;
     public boolean restrictFilterOptions;
 }

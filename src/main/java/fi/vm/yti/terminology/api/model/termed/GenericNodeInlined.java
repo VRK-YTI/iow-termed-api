@@ -5,12 +5,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 
 public final class GenericNodeInlined implements Node {
 
     private final UUID id;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID definedInScheme = null;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID usedInScheme = null;
     private final String code;
     private final String uri;
     private final Long number;
@@ -59,6 +65,22 @@ public final class GenericNodeInlined implements Node {
 
     public UUID getId() {
         return id;
+    }
+    
+    public UUID getDefinedInScheme() {
+        return definedInScheme;
+    }
+
+    public void setDefinedInScheme(UUID id) {
+        this.definedInScheme=id;
+    }
+
+    public UUID getUsedInScheme() {
+        return usedInScheme;
+    }
+
+    public void setusedInScheme(UUID id) {
+        this.usedInScheme=id;
     }
 
     public String getCode() {

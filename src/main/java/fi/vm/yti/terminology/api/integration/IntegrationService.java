@@ -266,6 +266,8 @@ public class IntegrationService {
 
         if (request.getPageFrom() != null) {
             sourceBuilder.from(request.getPageFrom());
+        } else {
+            sourceBuilder.from(0);
         }
 
         if (request.getPageSize() != null && request.getPageSize() > 0) {
@@ -440,7 +442,7 @@ public class IntegrationService {
                 JsonNode source = hit.get("_source");
                 if (source != null) {
                     ContainersResponse node = parseResourceResponse(source);
-                    node.setType("consept");
+                    node.setType("concept");
                     if (node.getUri() != null && node.getPrefLabel() != null && node.getStatus() != null) {
                         resp.add(node);
                     } else {
@@ -475,6 +477,14 @@ public class IntegrationService {
         return new ResponseEntity<>("{}", HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    /**
+     * Create resources elastic query. Default intepretation is and. So if multiple fields are defined, result is logical AND
+     * between them. For instanse given containers(A,B) and uris(x,y) it returns x,y if those belongs into those namespaces. However
+     * if request was: containers(A), uris(x,y) it returns only x, because y was not in A namespace.
+     * @
+     * @param request
+     * @return SearchRequest object which contains elastic contructed search and it's additional modifiers.
+     */
     private SearchRequest createResourcesQuery(IntegrationResourceRequest request) {
 
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
@@ -483,9 +493,10 @@ public class IntegrationService {
         List<QueryBuilder> mustList = boolQuery.must();
         List<QueryBuilder> mustNotList = boolQuery.mustNot();
 
-        Set<String> terminologyContainerUris = null;
+        // Containert filtering (namespaces)
+        Set<String> terminologyNsUris = null;
         if (request.getContainer() != null && !request.getContainer().isEmpty()) {
-            terminologyContainerUris = new HashSet<>();
+            terminologyNsUris = new HashSet<>();
             BoolQueryBuilder uriBoolQuery = QueryBuilders.boolQuery();
             for (String uriFromRequest : request.getContainer()) {
                 if (!uriFromRequest.endsWith("/")) {
@@ -497,19 +508,19 @@ public class IntegrationService {
                     logger.warn("URI is probably invalid: " + uriFromRequest);
                     uriBoolQuery.should(QueryBuilders.termQuery("uri", uriFromRequest)); // basically will not match
                 }
-                terminologyContainerUris.add(uriFromRequest);
+                terminologyNsUris.add(uriFromRequest);
             }
             uriBoolQuery.minimumShouldMatch(1);
             mustList.add(uriBoolQuery);
         }
-        // match
-        Set<String> terminologyNsUris = request.getUri();
+        // Handle uri list. More exact items inside containers. In general (container namespace)/(concept)
         if (request.getUri() != null && !request.getUri().isEmpty()) {
             QueryBuilder uriQuery = QueryBuilders.boolQuery().should(QueryBuilders.termsQuery("uri", request.getUri()))
                     .minimumShouldMatch(1);
             mustList.add(uriQuery);
         }
 
+        // Check existence of either container or uri and if missing, ensure that returned items have some URI defined.
         if (request.getContainer() == null && request.getUri() == null) {
             // Don't return items without URI
             mustList.add(QueryBuilders.existsQuery("uri"));
@@ -581,9 +592,6 @@ public class IntegrationService {
         if (request.getStatus() != null && !request.getStatus().isEmpty()) {
             mustList.add(QueryBuilders.termsQuery("status", request.getStatus()));
         }
-
-        // Don't return items without URI
-        mustList.add(QueryBuilders.existsQuery("uri"));
 
         sourceBuilder.query(boolQuery);
 

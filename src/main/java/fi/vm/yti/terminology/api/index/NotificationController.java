@@ -2,10 +2,14 @@ package fi.vm.yti.terminology.api.index;
 
 import fi.vm.yti.terminology.api.model.termed.Identifier;
 import fi.vm.yti.terminology.api.model.termed.NodeType;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +27,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
 @RestController
+@Tag(name = "Private")
 public class NotificationController {
 
     private final IndexElasticSearchService elasticSearchService;
@@ -39,7 +44,9 @@ public class NotificationController {
         this.elasticSearchService = elasticSearchService;
     }
 
-    @RequestMapping("/private/v1/notify")
+    @Operation(summary = "Submit Termed notification", description = "Handler for Termed web hook notification for modified nodes")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Termed notification object", required = true)
+    @PostMapping(path = "/private/v1/notify", consumes = MediaType.APPLICATION_JSON_VALUE)
     public void notify(@RequestBody TermedNotification notification) {
         logger.info("/private/v1/notify requested with notification.user: " + notification.body.user + " and node identifier ids:");
         for (final Identifier ident: notification.body.nodes) {

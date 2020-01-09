@@ -27,7 +27,8 @@ file if it does not exist:
 
 and run:
 ```
-./gradlew bootRun -Dspring.profiles.active=prod
+./gradlew bootRun  --args='--spring.profiles.active=prod'
+
 ```
 
 ## Stopping
@@ -50,6 +51,6 @@ Now you can start hacking the code normally.
 
 ## Build (executable) jar
 
-Run with: `./gradlew jar -Dspring.profiles.active=prod`
+Run with: `./gradlew jar --args='--spring.profiles.active=prod'`
 
 The jar file is created into folder ./build/libs

@@ -15,6 +15,10 @@ public final class GenericNode implements Node {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private UUID id = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID definedInScheme = null;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID usedInScheme = null;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String code = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String uri = null;
@@ -130,6 +134,23 @@ public final class GenericNode implements Node {
     public void setId(UUID id) {
         this.id=id;
     }
+
+    public UUID getDefinedInScheme() {
+        return definedInScheme;
+    }
+
+    public void setDefinedInScheme(UUID id) {
+        this.definedInScheme=id;
+    }
+
+    public UUID getUsedInScheme() {
+        return usedInScheme;
+    }
+
+    public void setusedInScheme(UUID id) {
+        this.usedInScheme=id;
+    }
+    
     public String getCode() {
         return code;
     }
@@ -158,12 +179,20 @@ public final class GenericNode implements Node {
         return createdDate;
     }
 
+    public void setCreatedDate(Date dt) {
+        createdDate=dt;
+    }
+
     public String getLastModifiedBy() {
         return lastModifiedBy;
     }
 
     public Date getLastModifiedDate() {
         return lastModifiedDate;
+    }
+
+    public void setLastModifiedDate(Date dt) {
+        lastModifiedDate = dt;
     }
 
     public TypeId getType() {
@@ -180,6 +209,10 @@ public final class GenericNode implements Node {
 
     public Map<String, List<Identifier>> getReferrers() {
         return referrers;
+    }
+
+    public void  setReferrers(Map<String, List<Identifier>> referrers) {
+        this.referrers = referrers;
     }
 
     public GenericNode copyToGraph(UUID graphId) {

@@ -38,6 +38,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Group;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Organization;
+import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
@@ -278,7 +279,9 @@ public class FrontendController {
         } else {
             logger.info("GET /types requested without graphId");
         }
-        return termedService.getTypes(graphId);
+        // One graph change, use default value
+//        return termedService.getTypes(graphId);
+        return termedService.getTypes(TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
     }
 
     @Operation(summary = "Get all graphs from Termed")
@@ -294,7 +297,9 @@ public class FrontendController {
     @GetMapping(path = "/graphs/{id}", produces = APPLICATION_JSON_VALUE)
     Graph getGraph(@Parameter(description = "Id for the graph") @PathVariable("id") UUID graphId) {
         logger.info("GET /graphs/{id} requested with graphId: " + graphId.toString());
-        return termedService.getGraph(graphId);
+        // One graph, use default
+//        return termedService.getGraph(graphId);  
+        return termedService.getGraph(TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
     }
 
     /*

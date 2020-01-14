@@ -87,6 +87,32 @@ public class IndexTermedService {
                 .collect(toList());
     }
 
+    /**
+     * Get list of terminologicalVocabularyId's sample query
+     * http://localhost:9102/api/node-trees?select=id,uri&where=type.id:TerminologicalVocabulary
+     * 
+     * @param vocabularyType
+     * @return
+     */
+    public List<UUID> fetchAllAvailableTerminologyIds() {
+
+        log.info("Fetching all terminology IDs..");
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("select", "type");
+        params.add("where", "type.id:TerminologicalVocabulary");
+        params.add("max", "-1");
+
+        List<Identifier> idList = termedRequester.exchange("/node-trees", GET, params,
+                new ParameterizedTypeReference<List<Identifier>>() {
+                });
+
+        List<UUID> termVocs = idList.stream().map(Identifier::getId).collect(toList());
+        return termVocs;
+    }
+
+
     @NotNull List<Graph> fetchAllAvailableGraphs() {
 
         log.info("Fetching all graph");
@@ -184,20 +210,39 @@ public class IndexTermedService {
         }
     }
 
-    public @Nullable JsonNode getTerminologyVocabularyNode(@NotNull UUID graphId) {
+    public GenericNode getNode(UUID id) {
+        GenericNode node = null;
+        Parameters params = new Parameters();
+        params.add("select", "*");
+        params.add("where", "id:" + id.toString());
+        List<GenericNode> nodes = termedRequester.exchange("/node-trees", GET, params,
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
+        if (!nodes.isEmpty() && nodes.size() == 1) {
+            node = nodes.get(0);
+        }
+        return node;
+    }
+
+    public JsonNode getNodeAsJson(UUID id) {
+        JsonNode node = null;
+        Parameters params = new Parameters();
+        params.add("select", "*");
+        params.add("where", "id:" + id.toString());
+        node = termedRequester.exchange("/node-trees", GET, params,JsonNode.class);
+        return node;
+    }
+ 
+    public @Nullable JsonNode getTerminologyVocabularyNodeAsJsonNode(@NotNull UUID Id) {
 
         long start = System.currentTimeMillis();
-        JsonNode json = getFullVocabularyNode(graphId, VocabularyType.TerminologicalVocabulary);
+
+        JsonNode json = getNodeAsJson(Id);
         long end = System.currentTimeMillis();
         if (log.isDebugEnabled()) {
             log.info("Vocabulary Search took " + (end - start) + "ms");
         }
-        if (json != null) {
-            return json;
-        } else {
-            log.info("Vocabulary for graph " + graphId + " was not found as type " + VocabularyType.TerminologicalVocabulary.name() + ". Trying to find as type " + VocabularyType.Vocabulary.name());
-            return getVocabularyNode(graphId, VocabularyType.Vocabulary);
-        }
+        return json;
     }
 
     private @Nullable JsonNode getFullVocabularyNode(@NotNull UUID graphId, @NotNull VocabularyType vocabularyType) {

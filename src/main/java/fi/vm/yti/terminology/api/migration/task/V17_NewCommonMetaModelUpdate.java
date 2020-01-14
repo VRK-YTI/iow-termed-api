@@ -5,9 +5,11 @@ import fi.vm.yti.terminology.api.index.Vocabulary;
 import fi.vm.yti.terminology.api.migration.AttributeIndex;
 import fi.vm.yti.terminology.api.migration.DomainIndex;
 import fi.vm.yti.terminology.api.migration.MigrationService;
+import fi.vm.yti.terminology.api.migration.ReferenceIndex;
 import fi.vm.yti.terminology.api.model.termed.Identifier;
 import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import fi.vm.yti.terminology.api.model.termed.NodeType;
+import fi.vm.yti.terminology.api.model.termed.ReferenceMeta;
 import fi.vm.yti.terminology.api.model.termed.TypeId;
 import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
 import fi.vm.yti.terminology.api.model.termed.GenericDeleteAndSave;
@@ -36,6 +38,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
+import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_CONCEPT_LINK_TEMPLATE_DOMAIN;
+
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
@@ -85,20 +89,14 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
 
     @Override
     public void migrate() {
-        // Modify base graph
-        migrationService.updateTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, meta -> {
-            // Go through text-attributes and add descriptions to known ids
-            updateTypes(meta);
-        });
         // update all the rest metamodels
         migrationService.updateTypes(VocabularyNodeType.TerminologicalVocabulary, meta -> {
-            // Go through text-attributes and add descriptions to known ids
+            // Go through attributes  and references 
             updateTypes(meta);
         });
-
         // Delete concept-link YTI-330
         deleteConceptLinksFromGraphs();
-        // TODO: fix this
+        // delete concept-link items
         migrationService.deleteTypes(VocabularyNodeType.TerminologicalVocabulary, "ConceptLink");
 
         // Start data manipulation.
@@ -132,6 +130,11 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
                 }
             }
         });
+
+        // After migration, modify meta again. This time we  have only root node so
+
+        modifyRootMeta();
+System.exit(1);
     }
 
     /**
@@ -237,7 +240,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         // Just replace all graph id's with root graph id.
         GenericNode gn = migrationService.replaceIdRef(o.getId(), o.getType().getGraphId(),
                 DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
-        logger.debug("Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
+        logger.debug(
+                "Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
         gn.setCode(null);
         // Remove dates
         gn.setCreatedDate(null);
@@ -250,7 +254,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         // Just replace all graph id's with root graph id.
         GenericNode gn = migrationService.replaceIdRef(o.getId(), o.getType().getGraphId(),
                 DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
-        logger.debug("Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
+        logger.debug(
+                "Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
         gn.setCode(null);
         // Remove dates
         gn.setCreatedDate(null);
@@ -267,7 +272,7 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         logger.info("Graph:" + graph + " NodeCount=" + nodes.size());
         nodes.forEach(o -> {
             if (o.getType().getId() == NodeType.TerminologicalVocabulary) {
-                updateNodeList.add(modifyTerminologyLinks(o));                
+                updateNodeList.add(modifyTerminologyLinks(o));
             } else if (o.getType().getId() == NodeType.Concept) {
                 updateNodeList.add(modifyConceptLinks(o, terminologyId));
             } else if (o.getType().getId() == NodeType.Term) {
@@ -281,7 +286,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         if (updateNodeList != null && !updateNodeList.isEmpty()) {
             logger.info("Update following nodes count:" + updateNodeList.size());
             migrationService.updateAndDeleteInternalNodes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID,
-                    new GenericDeleteModifyAndSave(Collections.<Identifier>emptyList(), updateNodeList, Collections.<GenericNode>emptyList()));
+                    new GenericDeleteModifyAndSave(Collections.<Identifier>emptyList(), updateNodeList,
+                            Collections.<GenericNode>emptyList()));
         }
         long end = System.currentTimeMillis();
         logger.info("Graph:" + graph.toString() + " update took " + (end - start) + "ms");
@@ -355,28 +361,27 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
     private boolean updateTypes(MetaNode meta) {
         boolean rv = false;
         String domainName = meta.getDomain().getId().name();
-        if (meta.isOfType(NodeType.TerminologicalVocabulary) || meta.isOfType(NodeType.Schema)) {
+        logger.info("UpdateTypes  metaID::" + domainName + " Domain:"
+        + meta.getDomain().getGraphId().toString());
+       if (meta.isOfType(NodeType.TerminologicalVocabulary) || meta.isOfType(NodeType.Schema)) {
             if (meta.attributeExist("priority")) {
                 logger.info("Remove priority attribute from metaID::" + meta.getId() + " Domain:"
                         + meta.getDomain().getGraphId().toString());
                 meta.removeAttribute("priority");
             }
-        } else if (meta.isOfType(NodeType.Concept) || meta.isOfType(NodeType.Schema)) {
-            logger.info("Add relatedMatch and usedIn into the  metaID::" + meta.getId() + " Domain:"
-                    + meta.getDomain().getGraphId().toString());
+        } else if (meta.isOfType(NodeType.Concept) ) {
             // Add new used- and definedInScheme YTI-1159
             TypeId domain = meta.getDomain();
-            if (!meta.attributeExist("usedInScheme")) {
-                meta.addAttribute(AttributeIndex.usedInScheme(domain, 15));
+            
+            if (!meta.referenceExist("usedInScheme")) {
+                meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                logger.info("Adding usedInScheme");
             }
-            if (!meta.attributeExist("definedInScheme")) {
-                meta.addAttribute(AttributeIndex.definedInScheme(domain, 16));
+            if (!meta.referenceExist("definedInScheme")) {
+                meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                logger.info("Adding definedInScheme");
             }
-            // Remove reference-attribute relatedMatch because ConceptLinkMeta is retired
-            if (meta.attributeExist("relatedMatch")) {
-                logger.info("Remove relatedMatch from Meta");
-                meta.removeReference("relatedMatch");
-            }
+
             if (meta.attributeExist("usedIn")) {
                 logger.info("Remove usedIn from Meta");
                 meta.removeReference("usedIn");
@@ -384,6 +389,48 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
             rv = true;
         }
         return rv;
+    }
+
+    private void modifyRootMeta(){
+
+        List<MetaNode> metaList = migrationService.getTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+        List<MetaNode> metaModel = new ArrayList<>();
+
+        logger.info("Meta nodes:");
+        metaList.forEach(meta ->{
+            String domainName = meta.getDomain().getId().name();
+            logger.info("ModifyRootMeta  metaID:" + domainName );
+           if (meta.isOfType(NodeType.Concept) ) {
+                logger.info("Add relatedMatch and usedIn into the  metaID:" + meta.getId());
+                TypeId domain = meta.getDomain();
+                // Remove reference-attribute relatedMatch because ConceptLinkMeta is retired
+                if (meta.referenceExist("relatedMatch")) {
+                    logger.info("Remove root relatedMatch from Meta");
+                    meta.removeReference("relatedMatch");
+                }
+                // Add it again.
+                meta.addReference(ReferenceIndex.relatedMatch(domain, 16));
+
+                if (meta.referenceExist("exactMatch")) {
+                    logger.info("Remove root exactMatch from Meta");
+                    meta.removeReference("exactMatch");
+                }
+                // Add it again.
+                meta.addReference(ReferenceIndex.exactMatch(domain, 17));
+
+                if (meta.referenceExist("closeMatch")) {
+                    logger.info("Remove root closeMatch from Meta");
+                    meta.removeReference("closeMatch");
+                }
+                // Add it again.
+                meta.addReference(ReferenceIndex.closeMatch(domain, 18));
+            }
+            // Add all other meta types except concept  link
+            if(!meta.isOfType(NodeType.ConceptLink)){
+                metaModel.add(meta);
+            }
+        });
+        migrationService.updateTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, metaModel);
     }
 
 }

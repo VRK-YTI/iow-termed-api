@@ -142,6 +142,16 @@ public final class MetaNode {
         return referenceAttributes;
     }
 
+    public boolean referenceExist(String name) {
+        boolean rv = false;
+        Optional<ReferenceMeta> o = referenceAttributes.stream()
+                .filter(x -> x.getId().equals(name))
+                .findAny();
+        if(o.isPresent())
+            rv = true;
+        return rv;
+    }
+
     public ReferenceMeta getReference(String name) {
         return referenceAttributes.stream()
                 .filter(x -> x.getId().equals(name))

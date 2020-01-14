@@ -125,16 +125,17 @@ public class IndexElasticSearchService {
     }
 
     private void reindexVocabularies() {
-        // Index vocabularies
+        // Index terminologies
         long start = System.currentTimeMillis();
         // index also all vocabulary-objects
         List<JsonNode> vocabularies = new ArrayList<>();
         // Get graphs
-        List<UUID> graphs = termedApiService.fetchAllAvailableVocabularyGraphIds();
+//        List<UUID> graphs = termedApiService.fetchAllAvailableVocabularyGraphIds();
+        List<UUID> terminologies = termedApiService.fetchAllAvailableTerminologyIds();
+        log.info("Terminology count="+terminologies.size());
         // Get vocabularies under graphs
-        graphs.forEach(o -> {
-            JsonNode jn = termedApiService.getTerminologyVocabularyNode(o);
-
+        terminologies.forEach(o -> {
+            JsonNode jn = termedApiService.getTerminologyVocabularyNodeAsJsonNode(o);
             // resolve organization info from references.contributor
             if (jn != null) {
                 vocabularies.add(jn);
@@ -147,6 +148,7 @@ public class IndexElasticSearchService {
         List<String> indexLines = new ArrayList<>();
         vocabularies.forEach(o -> {
             try {
+                JsonUtils.prettyPrintJson(o);
                 String line = "{\"index\":{\"_index\": \"vocabularies\", \"_type\": \"vocabulary" + "\", \"_id\":"
                         + o.get("id") + "}}\n" + mapper.writeValueAsString(o) + "\n";
                 indexLines.add(line);
@@ -159,12 +161,12 @@ public class IndexElasticSearchService {
             }
         });
         String index = indexLines.stream().collect(Collectors.joining("\n"));
+        log.info("Handle terminology, index line:"+index);
+
         String delete = "";
         // Content type changed for elastic search 6.x
         HttpEntity entity = new NStringEntity(index + delete,
                 ContentType.create("application/json", StandardCharsets.UTF_8));
-        // ContentType.create("application/json", StandardCharsets.UTF_8));
-        // ContentType.create("application/x-ndjson", StandardCharsets.UTF_8));
         Map<String, String> params = new HashMap<>();
         params.put("pretty", "true");
         params.put("refresh", "wait_for");
@@ -173,6 +175,7 @@ public class IndexElasticSearchService {
         }
         Response response = alsoUnsuccessful(() -> esRestClient.performRequest("POST", "/_bulk", params, entity));
         long end = System.currentTimeMillis();
+        log.info("Response:" + response + "\n Response status line" + response.getStatusLine());
         if (log.isDebugEnabled()) {
             log.debug("Response:" + response + "\n Response status line" + response.getStatusLine());
         }
@@ -188,7 +191,7 @@ public class IndexElasticSearchService {
         boolean rv = true;
         long start = System.currentTimeMillis();
         // Get vocabulary
-        JsonNode jn = termedApiService.getTerminologyVocabularyNode(vocId);
+        JsonNode jn = termedApiService.getTerminologyVocabularyNodeAsJsonNode(vocId);
         if (jn == null) {
             log.warn("Missing vocabulary during elasticsearch reindexing  :" + vocId.toString());
             return false;

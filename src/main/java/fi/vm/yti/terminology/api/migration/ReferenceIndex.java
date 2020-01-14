@@ -140,6 +140,27 @@ public final class ReferenceIndex {
                 )
         );
     }
+    /**
+     * Replace original with local reference
+     * @param domain
+     * @param index
+     * @return
+     */
+    @NotNull
+    public static ReferenceMeta relatedMatch(TypeId domain, long index) {
+        return new ReferenceMeta(
+                domain,
+                "relatedMatch",
+                "http://www.w3.org/2004/02/skos/core#relatedMatch",
+                index,
+                domain,
+                emptyMap(),
+                prefLabel(
+                        "Liittyvä käsite toisessa terminologiassa",
+                        "Related concept in other terminology"
+                )
+        );
+    }
 
     @NotNull
     public static ReferenceMeta exactMatch(TypeId domain, TypeId externalLinkDomain, long index) {
@@ -159,6 +180,27 @@ public final class ReferenceIndex {
                 )
         );
     }
+    /**
+     * replace original with local links
+     * @param domain
+     * @param index
+     * @return
+     */
+    @NotNull
+    public static ReferenceMeta exactMatch(TypeId domain, long index) {
+        return new ReferenceMeta(
+                domain,
+                "exactMatch",
+                "http://www.w3.org/2004/02/skos/core#exactMatch",
+                index,
+                domain,
+                emptyMap(),
+                prefLabel(
+                        "Vastaava käsite",
+                        "Related concept"
+                )
+        );
+    }
 
     @NotNull
     public static ReferenceMeta closeMatch(TypeId domain, TypeId externalLinkDomain, long index) {
@@ -175,6 +217,28 @@ public final class ReferenceIndex {
                                 "Close match in other vocabulary"
                         ),
                         type("link")
+                )
+        );
+    }
+    /**
+     * Replace original with intelnal links
+     * @param domain
+     * @param externalLinkDomain
+     * @param index
+     * @return
+     */
+    @NotNull
+    public static ReferenceMeta closeMatch(TypeId domain, long index) {
+        return new ReferenceMeta(
+                domain,
+                "closeMatch",
+                "http://www.w3.org/2004/02/skos/core#closeMatch",
+                index,
+                domain,
+                emptyMap(),
+                prefLabel(
+                        "Lähes vastaava käsite",
+                        "Close match"
                 )
         );
     }
@@ -275,6 +339,39 @@ public final class ReferenceIndex {
         );
     }
 
+
+    @NotNull
+    public static ReferenceMeta usedInScheme(TypeId domain, long index) {
+        return new ReferenceMeta(
+                termDomainFromConceptDomain(domain),
+                "usedInScheme",
+                "http://uri.suomi.fi/datamodel/ns/st#usedInScheme",
+                index,
+                domain,
+                emptyMap(),
+                prefLabel(
+                        "Käytössä sanastossa",
+                        "Used in scheme"
+                )
+        );
+    }
+
+    @NotNull
+    public static ReferenceMeta definedInScheme(TypeId domain, long index) {
+        return new ReferenceMeta(
+                termDomainFromConceptDomain(domain),
+                "definedInScheme",
+                "http://www.w3.org/2004/02/skos/core#inScheme",
+                index,
+                domain,
+                emptyMap(),
+                prefLabel(
+                        "Määritelty sanastossa",
+                        "Defined in scheme"
+                )
+        );
+    }    
+    
     // prevent construction
     private ReferenceIndex() {
     }

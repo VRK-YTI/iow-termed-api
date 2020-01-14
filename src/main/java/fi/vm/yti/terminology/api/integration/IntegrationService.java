@@ -296,6 +296,7 @@ public class IntegrationService {
             logger.debug("SearchRequest=" + sr);
             logger.debug(sr.source().toString());
         }
+        logger.info(sr.source().toString());
         return sr;
     }
 

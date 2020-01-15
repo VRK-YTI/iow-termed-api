@@ -48,7 +48,8 @@ import static java.util.Collections.singletonList;
  *
  * * LinkNode poisto ja siihen liittyvät assiaatiot + Poistetaan
  * createTerminologicalConceptLinkMeta() + Poistetaan
- * ReferenceIndex.relatedMatch + Muutetaan viittaamaan Concept-nodeen:
+ * ReferenceIndex.relatedMatch +
+ *  Muutetaan viittaamaan Concept-nodeen:
  * ReferenceIndex.exactMatch ja ReferenceIndex.closeMatch
  *
  *
@@ -71,7 +72,6 @@ import static java.util.Collections.singletonList;
  *
  * URI: skos:inScheme
  * 
- * Poistetaan asiasanastot
  */
 @Component
 public class V17_NewCommonMetaModelUpdate implements MigrationTask {
@@ -89,11 +89,13 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
 
     @Override
     public void migrate() {
-        // update all the rest metamodels
+        // Add defined- and usedInScheme
+        addSchemesToRootMeta();
+        // update all metamodels
         migrationService.updateTypes(VocabularyNodeType.TerminologicalVocabulary, meta -> {
-            // Go through attributes  and references 
             updateTypes(meta);
         });
+
         // Delete concept-link YTI-330
         deleteConceptLinksFromGraphs();
         // delete concept-link items
@@ -112,8 +114,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         vocabularies.forEach(id -> {
             GenericNode n = migrationService.getNode(id);
             if (n != null) {
-                System.out.println(
-                        "Vocabulary:" + n.getId() + " uri:" + n.getUri() + " graph:" + n.getType().getGraphId());
+                logger.info(
+                        "Terminology:" + n.getId() + " uri:" + n.getUri() + " graph:" + n.getType().getGraphId());
                 UUID gid = n.getType().getGraphId();
                 UUID terminologyId = n.getId();
                 // If vocabulary graph id is not yet under main graph, update references
@@ -130,11 +132,9 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
                 }
             }
         });
-
+        
         // After migration, modify meta again. This time we  have only root node so
-
         modifyRootMeta();
-System.exit(1);
     }
 
     /**
@@ -376,15 +376,17 @@ System.exit(1);
             if (!meta.referenceExist("usedInScheme")) {
                 meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
                 logger.info("Adding usedInScheme");
+            } else {
+                logger.info("usedInScheme exist");
+                meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
             }
+
             if (!meta.referenceExist("definedInScheme")) {
                 meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
                 logger.info("Adding definedInScheme");
-            }
-
-            if (meta.attributeExist("usedIn")) {
-                logger.info("Remove usedIn from Meta");
-                meta.removeReference("usedIn");
+            }else {
+                logger.info("definedInScheme exist");
+                meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
             }
             rv = true;
         }
@@ -417,14 +419,31 @@ System.exit(1);
                 }
                 // Add it again.
                 meta.addReference(ReferenceIndex.exactMatch(domain, 17));
-
+                
                 if (meta.referenceExist("closeMatch")) {
                     logger.info("Remove root closeMatch from Meta");
                     meta.removeReference("closeMatch");
-                }
+                }                
                 // Add it again.
-                meta.addReference(ReferenceIndex.closeMatch(domain, 18));
-            }
+                meta.addReference(ReferenceIndex.closeMatch(domain, 18));    
+
+                if (!meta.referenceExist("usedInScheme")) {
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                    logger.info("Adding usedInScheme");
+                } else {
+                    logger.info("usedInScheme exist");
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                }
+    
+                if (!meta.referenceExist("definedInScheme")) {
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                    logger.info("Adding definedInScheme");
+                }else {
+                    logger.info("definedInScheme exist");
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                }
+    
+            }            
             // Add all other meta types except concept  link
             if(!meta.isOfType(NodeType.ConceptLink)){
                 metaModel.add(meta);
@@ -433,4 +452,40 @@ System.exit(1);
         migrationService.updateTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, metaModel);
     }
 
+    private void addSchemesToRootMeta(){
+
+        List<MetaNode> metaList = migrationService.getTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+        List<MetaNode> metaModel = new ArrayList<>();
+
+        logger.info("Meta nodes:");
+        metaList.forEach(meta ->{
+            String domainName = meta.getDomain().getId().name();
+            logger.info("ModifyRootMeta  metaID:" + domainName );
+            TypeId domain = meta.getDomain();
+           if (meta.isOfType(NodeType.Concept) ) {
+                logger.info("Add definedIn- and usedInScheme into the  metaID:" + meta.getId());
+                if (!meta.referenceExist("usedInScheme")) {
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                    logger.info("Adding usedInScheme");
+                } else {
+                    logger.info("usedInScheme exist");
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                }
+    
+                if (!meta.referenceExist("definedInScheme")) {
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                    logger.info("Adding definedInScheme");
+                }else {
+                    logger.info("definedInScheme exist");
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                }
+    
+            }            
+            // Add all other meta types except concept  link
+            if(!meta.isOfType(NodeType.ConceptLink)){
+                metaModel.add(meta);
+            }
+        });
+        migrationService.updateTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, metaModel);
+    }    
 }

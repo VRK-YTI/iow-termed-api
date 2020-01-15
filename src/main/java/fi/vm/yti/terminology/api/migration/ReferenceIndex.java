@@ -12,12 +12,17 @@ import static java.util.Collections.emptyMap;
 
 public final class ReferenceIndex {
 
-    private static final TypeId termDomainFromConceptDomain(TypeId conceptDomain) {
+    private static final TypeId termDomainFromConceptDomain(final TypeId conceptDomain) {
         return new TypeId(NodeType.Term, conceptDomain.getGraph());
     }
 
+    // One graph, so use  hardCoded value
+    private static final TypeId terminologyDomainFromConceptDomain(final TypeId conceptDomain) {
+        return new TypeId(NodeType.TerminologicalVocabulary, conceptDomain.getGraph());
+    }
+
     @NotNull
-    public static ReferenceMeta contributor(TypeId domain, long index) {
+    public static ReferenceMeta contributor(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 ORGANIZATION_DOMAIN,
                 "contributor",
@@ -33,7 +38,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta group(TypeId domain, long index) {
+    public static ReferenceMeta group(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 GROUP_DOMAIN,
                 "inGroup",
@@ -49,7 +54,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta broader(TypeId domain, long index, String fi, String en) {
+    public static ReferenceMeta broader(final TypeId domain, final long index, final String fi, final String en) {
         return new ReferenceMeta(
                 domain,
                 "broader",
@@ -62,7 +67,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta narrower(TypeId domain, long index, String fi, String en) {
+    public static ReferenceMeta narrower(final TypeId domain, final long index, final String fi, final String en) {
         return new ReferenceMeta(
                 domain,
                 "narrower",
@@ -75,7 +80,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta relatedConcept(TypeId domain, long index) {
+    public static ReferenceMeta relatedConcept(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 domain,
                 "related",
@@ -91,7 +96,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta partOfConcept(TypeId domain, long index) {
+    public static ReferenceMeta partOfConcept(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 domain,
                 "isPartOf",
@@ -107,7 +112,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta hasPartConcept(TypeId domain, long index) {
+    public static ReferenceMeta hasPartConcept(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 domain,
                 "hasPart",
@@ -123,7 +128,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta relatedMatch(TypeId domain, TypeId externalLinkDomain, long index) {
+    public static ReferenceMeta relatedMatch(final TypeId domain, final TypeId externalLinkDomain, final long index) {
         return new ReferenceMeta(
                 externalLinkDomain,
                 "relatedMatch",
@@ -147,7 +152,7 @@ public final class ReferenceIndex {
      * @return
      */
     @NotNull
-    public static ReferenceMeta relatedMatch(TypeId domain, long index) {
+    public static ReferenceMeta relatedMatch(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 domain,
                 "relatedMatch",
@@ -163,7 +168,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta exactMatch(TypeId domain, TypeId externalLinkDomain, long index) {
+    public static ReferenceMeta exactMatch(final TypeId domain, final TypeId externalLinkDomain, final long index) {
         return new ReferenceMeta(
                 externalLinkDomain,
                 "exactMatch",
@@ -187,7 +192,7 @@ public final class ReferenceIndex {
      * @return
      */
     @NotNull
-    public static ReferenceMeta exactMatch(TypeId domain, long index) {
+    public static ReferenceMeta exactMatch(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 domain,
                 "exactMatch",
@@ -203,7 +208,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta closeMatch(TypeId domain, TypeId externalLinkDomain, long index) {
+    public static ReferenceMeta closeMatch(final TypeId domain, final TypeId externalLinkDomain, final long index) {
         return new ReferenceMeta(
                 externalLinkDomain,
                 "closeMatch",
@@ -228,7 +233,7 @@ public final class ReferenceIndex {
      * @return
      */
     @NotNull
-    public static ReferenceMeta closeMatch(TypeId domain, long index) {
+    public static ReferenceMeta closeMatch(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 domain,
                 "closeMatch",
@@ -244,7 +249,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta member(TypeId domain, TypeId targetDomain, long index) {
+    public static ReferenceMeta member(final TypeId domain, final TypeId targetDomain, final long index) {
         return new ReferenceMeta(
                 targetDomain,
                 "member",
@@ -260,7 +265,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta prefLabelXl(TypeId domain, long index) {
+    public static ReferenceMeta prefLabelXl(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 termDomainFromConceptDomain(domain),
                 "prefLabelXl",
@@ -276,7 +281,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta altLabelXl(TypeId domain, long index) {
+    public static ReferenceMeta altLabelXl(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 termDomainFromConceptDomain(domain),
                 "altLabelXl",
@@ -292,7 +297,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta notRecommendedSynonym(TypeId domain, long index) {
+    public static ReferenceMeta notRecommendedSynonym(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 termDomainFromConceptDomain(domain),
                 "notRecommendedSynonym",
@@ -308,7 +313,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta hiddenTerm(TypeId domain, long index) {
+    public static ReferenceMeta hiddenTerm(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 termDomainFromConceptDomain(domain),
                 "hiddenTerm",
@@ -324,7 +329,7 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta searchTerm(TypeId domain, long index) {
+    public static ReferenceMeta searchTerm(final TypeId domain, final long index) {
         return new ReferenceMeta(
                 termDomainFromConceptDomain(domain),
                 "searchTerm",
@@ -341,9 +346,9 @@ public final class ReferenceIndex {
 
 
     @NotNull
-    public static ReferenceMeta usedInScheme(TypeId domain, long index) {
+    public static ReferenceMeta usedInScheme(final TypeId domain, final long index) {
         return new ReferenceMeta(
-                termDomainFromConceptDomain(domain),
+                terminologyDomainFromConceptDomain(domain), // range or target, refers to terminology node        
                 "usedInScheme",
                 "http://uri.suomi.fi/datamodel/ns/st#usedInScheme",
                 index,
@@ -357,9 +362,9 @@ public final class ReferenceIndex {
     }
 
     @NotNull
-    public static ReferenceMeta definedInScheme(TypeId domain, long index) {
+    public static ReferenceMeta definedInScheme(final TypeId domain, final long index) {
         return new ReferenceMeta(
-                termDomainFromConceptDomain(domain),
+                terminologyDomainFromConceptDomain(domain), // range or target, refers to terminology node        
                 "definedInScheme",
                 "http://www.w3.org/2004/02/skos/core#inScheme",
                 index,

@@ -1,80 +1,62 @@
 package fi.vm.yti.terminology.api.migration.task;
 
-import fi.vm.yti.migration.MigrationTask;
-import fi.vm.yti.terminology.api.index.Vocabulary;
-import fi.vm.yti.terminology.api.migration.AttributeIndex;
-import fi.vm.yti.terminology.api.migration.DomainIndex;
-import fi.vm.yti.terminology.api.migration.MigrationService;
-import fi.vm.yti.terminology.api.migration.ReferenceIndex;
-import fi.vm.yti.terminology.api.model.termed.Identifier;
-import fi.vm.yti.terminology.api.model.termed.MetaNode;
-import fi.vm.yti.terminology.api.model.termed.NodeType;
-import fi.vm.yti.terminology.api.model.termed.ReferenceMeta;
-import fi.vm.yti.terminology.api.model.termed.TypeId;
-import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
-import fi.vm.yti.terminology.api.model.termed.GenericDeleteAndSave;
-import fi.vm.yti.terminology.api.model.termed.GenericDeleteModifyAndSave;
-import fi.vm.yti.terminology.api.model.termed.GenericNode;
-import fi.vm.yti.terminology.api.model.termed.Graph;
-import fi.vm.yti.terminology.api.util.JsonUtils;
-import fi.vm.yti.terminology.api.model.termed.GraphId;
-import fi.vm.yti.terminology.api.TermedContentType;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
-import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_CONCEPT_LINK_TEMPLATE_DOMAIN;
-
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
+import fi.vm.yti.migration.MigrationTask;
+import fi.vm.yti.terminology.api.migration.DomainIndex;
+import fi.vm.yti.terminology.api.migration.MigrationService;
+import fi.vm.yti.terminology.api.migration.ReferenceIndex;
+import fi.vm.yti.terminology.api.model.termed.GenericDeleteModifyAndSave;
+import fi.vm.yti.terminology.api.model.termed.GenericNode;
+import fi.vm.yti.terminology.api.model.termed.Graph;
+import fi.vm.yti.terminology.api.model.termed.GraphId;
+import fi.vm.yti.terminology.api.model.termed.Identifier;
+import fi.vm.yti.terminology.api.model.termed.MetaNode;
+import fi.vm.yti.terminology.api.model.termed.NodeType;
+import fi.vm.yti.terminology.api.model.termed.TypeId;
+import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
 
 /**
  * Migration for YTI-1159, New common metamodel ToDo:
- *
+ * <p>
  * * LinkNode poisto ja siihen liittyvät assiaatiot + Poistetaan
  * createTerminologicalConceptLinkMeta() + Poistetaan
- * ReferenceIndex.relatedMatch + Muutetaan viittaamaan Concept-nodeen:
+ * ReferenceIndex.relatedMatch +
+ * Muutetaan viittaamaan Concept-nodeen:
  * ReferenceIndex.exactMatch ja ReferenceIndex.closeMatch
- *
- *
+ * <p>
+ * <p>
  * Concept nodelle usedInScheme joka viittaa sanastonodeen. Syntyy silloin kun
  * käsite on "lainattu" toiseen sanastoon
- *
+ * <p>
  * PrefLabel: "Käytössä sanastossa" / "Used in scheme"
- *
+ * <p>
  * Id: usedInScheme
- *
+ * <p>
  * URI: skos:inScheme
- *
- *
+ * <p>
+ * <p>
  * * Concept nodelle definedInScheme joka viittaa sanastonodeen. Syntyy
  * käsitettä luotaessa
- *
+ * <p>
  * PrefLabel: "Määritelty sanastossa" / "Defined in scheme"
- *
+ * <p>
  * Id: definedInScheme
- *
+ * <p>
  * URI: skos:inScheme
- * 
- * Poistetaan asiasanastot
  */
 @Component
 public class V17_NewCommonMetaModelUpdate implements MigrationTask {
+
     private static Logger logger = LoggerFactory.getLogger(V17_NewCommonMetaModelUpdate.class);
     private final MigrationService migrationService;
 
@@ -89,11 +71,13 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
 
     @Override
     public void migrate() {
-        // update all the rest metamodels
+        // Add defined- and usedInScheme
+        addSchemesToRootMeta();
+        // update all metamodels
         migrationService.updateTypes(VocabularyNodeType.TerminologicalVocabulary, meta -> {
-            // Go through attributes  and references 
             updateTypes(meta);
         });
+
         // Delete concept-link YTI-330
         deleteConceptLinksFromGraphs();
         // delete concept-link items
@@ -112,8 +96,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         vocabularies.forEach(id -> {
             GenericNode n = migrationService.getNode(id);
             if (n != null) {
-                System.out.println(
-                        "Vocabulary:" + n.getId() + " uri:" + n.getUri() + " graph:" + n.getType().getGraphId());
+                logger.info(
+                    "Terminology:" + n.getId() + " uri:" + n.getUri() + " graph:" + n.getType().getGraphId());
                 UUID gid = n.getType().getGraphId();
                 UUID terminologyId = n.getId();
                 // If vocabulary graph id is not yet under main graph, update references
@@ -132,16 +116,14 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         });
 
         // After migration, modify meta again. This time we  have only root node so
-
         modifyRootMeta();
-System.exit(1);
     }
 
     /**
      * Originally each graph object contained Meta-model of the terminology. After
      * this it is managed under root graph so in 1.st phase terminology uri is moved
      * under vocabulary-object
-     * 
+     *
      * @param g
      */
     private void addMetaToUri(Graph g) {
@@ -150,7 +132,7 @@ System.exit(1);
         if (gr != null) {
             String uri = gr.getUri();
             if (uri != null && !uri.isEmpty() && uri.contains("http://uri.suomi.fi/terminology")
-                    && !uri.endsWith("Meta")) {
+                && !uri.endsWith("Meta")) {
                 // terminology, replace it
                 if (!uri.endsWith("/")) {
                     uri = uri.concat("/");
@@ -189,7 +171,7 @@ System.exit(1);
                     migrationService.removeNodes(false, true, l.getType().getGraph().getId(), removeList);
                 } else {
                     logger.info("deleteConceptLinks failed for graph:" + l.getType().getGraph().getId() + " l:"
-                            + l.getId());
+                        + l.getId());
                 }
             });
         }
@@ -219,11 +201,12 @@ System.exit(1);
         return o;
     }
 
-    private GenericNode modifyConceptLinks(GenericNode o, UUID terminologyId) {
+    private GenericNode modifyConceptLinks(GenericNode o,
+                                           UUID terminologyId) {
         // GenericNode gn = migrationService.getNode(o.getId());
         // Just replace all graph id's with root graph id.
         GenericNode gn = migrationService.replaceIdRef(o.getId(), o.getType().getGraphId(),
-                DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+            DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
         logger.debug("Replace graph references for <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
         gn.setDefinedInScheme(terminologyId);
         // remove uri
@@ -239,9 +222,9 @@ System.exit(1);
     private GenericNode modifyTermLinks(GenericNode o) {
         // Just replace all graph id's with root graph id.
         GenericNode gn = migrationService.replaceIdRef(o.getId(), o.getType().getGraphId(),
-                DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+            DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
         logger.debug(
-                "Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
+            "Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
         gn.setCode(null);
         // Remove dates
         gn.setCreatedDate(null);
@@ -253,9 +236,9 @@ System.exit(1);
     private GenericNode modifyCollectionLinks(GenericNode o) {
         // Just replace all graph id's with root graph id.
         GenericNode gn = migrationService.replaceIdRef(o.getId(), o.getType().getGraphId(),
-                DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+            DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
         logger.debug(
-                "Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
+            "Replace graph references for term <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
         gn.setCode(null);
         // Remove dates
         gn.setCreatedDate(null);
@@ -264,7 +247,8 @@ System.exit(1);
         return gn;
     }
 
-    private void ModifyLinks(UUID graph, UUID terminologyId) {
+    private void ModifyLinks(UUID graph,
+                             UUID terminologyId) {
         // Modified node list
         List<GenericNode> updateNodeList = new ArrayList<>();
         Long start = System.currentTimeMillis();
@@ -286,8 +270,8 @@ System.exit(1);
         if (updateNodeList != null && !updateNodeList.isEmpty()) {
             logger.info("Update following nodes count:" + updateNodeList.size());
             migrationService.updateAndDeleteInternalNodes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID,
-                    new GenericDeleteModifyAndSave(Collections.<Identifier>emptyList(), updateNodeList,
-                            Collections.<GenericNode>emptyList()));
+                new GenericDeleteModifyAndSave(Collections.<Identifier>emptyList(), updateNodeList,
+                    Collections.<GenericNode>emptyList()));
         }
         long end = System.currentTimeMillis();
         logger.info("Graph:" + graph.toString() + " update took " + (end - start) + "ms");
@@ -317,8 +301,8 @@ System.exit(1);
                     // Fetch source node
                     GenericNode sn = migrationService.getNode(idf.getId());
                     logger.info("concept-link reference closeMatch graph:" + idf.getType().getGraph().getId()
-                            + " concept id:" + idf.getId() + " target-> uri:" + targetUri + " label="
-                            + n.getProperties().get("prefLabel").get(0).getValue() + " targetId:" + targId.toString());
+                        + " concept id:" + idf.getId() + " target-> uri:" + targetUri + " label="
+                        + n.getProperties().get("prefLabel").get(0).getValue() + " targetId:" + targId.toString());
                 }
                 identifier = n.getReferrers().get("exactMatch");
                 if (identifier != null) {
@@ -327,16 +311,16 @@ System.exit(1);
                     GenericNode sn = migrationService.getNode(tid, idf.getId());
                     if (targetUri == null) {
                         logger.error("Link error, concept-link reference exactMatch graph:"
-                                + idf.getType().getGraph().getId() + " concept id:" + idf.getId() + " concept uri:"
-                                + sn.getUri() + " target-> uri:" + targetUri + " label="
-                                + n.getProperties().get("prefLabel").get(0).getValue() + " targetId:"
-                                + targId.toString());
+                            + idf.getType().getGraph().getId() + " concept id:" + idf.getId() + " concept uri:"
+                            + sn.getUri() + " target-> uri:" + targetUri + " label="
+                            + n.getProperties().get("prefLabel").get(0).getValue() + " targetId:"
+                            + targId.toString());
 
                     } else {
                         logger.info("concept-link reference exactMatch graph:" + idf.getType().getGraph().getId()
-                                + " concept id:" + idf.getId() + " concept uri:" + sn.getUri() + " target-> uri:"
-                                + targetUri + " label=" + n.getProperties().get("prefLabel").get(0).getValue()
-                                + " targetId:" + targId.toString());
+                            + " concept id:" + idf.getId() + " concept uri:" + sn.getUri() + " target-> uri:"
+                            + targetUri + " label=" + n.getProperties().get("prefLabel").get(0).getValue()
+                            + " targetId:" + targId.toString());
                     }
                 }
                 identifier = n.getReferrers().get("relatedMatch");
@@ -344,9 +328,9 @@ System.exit(1);
                     Identifier idf = identifier.get(0);
                     GenericNode sn = migrationService.getNode(idf.getId());
                     logger.info("concept-link reference relatedMatch graph:" + idf.getType().getGraph().getId()
-                            + " concept id:" + idf.getId() + " concept uri:" + sn.getUri() + " target-> uri:"
-                            + targetUri + " label=" + n.getProperties().get("prefLabel").get(0).getValue()
-                            + " targetId:" + targId.toString());
+                        + " concept id:" + idf.getId() + " concept uri:" + sn.getUri() + " target-> uri:"
+                        + targetUri + " label=" + n.getProperties().get("prefLabel").get(0).getValue()
+                        + " targetId:" + targId.toString());
                 }
             }
         }
@@ -354,7 +338,7 @@ System.exit(1);
 
     /**
      * Add new used- and definedInScheme attributes
-     * 
+     *
      * @param meta MetaNode to be updated
      * @return true if updated
      */
@@ -362,45 +346,47 @@ System.exit(1);
         boolean rv = false;
         String domainName = meta.getDomain().getId().name();
         logger.info("UpdateTypes  metaID::" + domainName + " Domain:"
-        + meta.getDomain().getGraphId().toString());
-       if (meta.isOfType(NodeType.TerminologicalVocabulary) || meta.isOfType(NodeType.Schema)) {
+            + meta.getDomain().getGraphId().toString());
+        if (meta.isOfType(NodeType.TerminologicalVocabulary) || meta.isOfType(NodeType.Schema)) {
             if (meta.attributeExist("priority")) {
                 logger.info("Remove priority attribute from metaID::" + meta.getId() + " Domain:"
-                        + meta.getDomain().getGraphId().toString());
+                    + meta.getDomain().getGraphId().toString());
                 meta.removeAttribute("priority");
             }
-        } else if (meta.isOfType(NodeType.Concept) ) {
+        } else if (meta.isOfType(NodeType.Concept)) {
             // Add new used- and definedInScheme YTI-1159
             TypeId domain = meta.getDomain();
-            
+
             if (!meta.referenceExist("usedInScheme")) {
                 meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
                 logger.info("Adding usedInScheme");
+            } else {
+                logger.info("usedInScheme exist");
+                meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
             }
+
             if (!meta.referenceExist("definedInScheme")) {
                 meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
                 logger.info("Adding definedInScheme");
-            }
-
-            if (meta.attributeExist("usedIn")) {
-                logger.info("Remove usedIn from Meta");
-                meta.removeReference("usedIn");
+            } else {
+                logger.info("definedInScheme exist");
+                meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
             }
             rv = true;
         }
         return rv;
     }
 
-    private void modifyRootMeta(){
+    private void modifyRootMeta() {
 
         List<MetaNode> metaList = migrationService.getTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
         List<MetaNode> metaModel = new ArrayList<>();
 
         logger.info("Meta nodes:");
-        metaList.forEach(meta ->{
+        metaList.forEach(meta -> {
             String domainName = meta.getDomain().getId().name();
-            logger.info("ModifyRootMeta  metaID:" + domainName );
-           if (meta.isOfType(NodeType.Concept) ) {
+            logger.info("ModifyRootMeta  metaID:" + domainName);
+            if (meta.isOfType(NodeType.Concept)) {
                 logger.info("Add relatedMatch and usedIn into the  metaID:" + meta.getId());
                 TypeId domain = meta.getDomain();
                 // Remove reference-attribute relatedMatch because ConceptLinkMeta is retired
@@ -424,13 +410,66 @@ System.exit(1);
                 }
                 // Add it again.
                 meta.addReference(ReferenceIndex.closeMatch(domain, 18));
+
+                if (!meta.referenceExist("usedInScheme")) {
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                    logger.info("Adding usedInScheme");
+                } else {
+                    logger.info("usedInScheme exist");
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                }
+
+                if (!meta.referenceExist("definedInScheme")) {
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                    logger.info("Adding definedInScheme");
+                } else {
+                    logger.info("definedInScheme exist");
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                }
+
             }
             // Add all other meta types except concept  link
-            if(!meta.isOfType(NodeType.ConceptLink)){
+            if (!meta.isOfType(NodeType.ConceptLink)) {
                 metaModel.add(meta);
             }
         });
         migrationService.updateTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, metaModel);
     }
 
+    private void addSchemesToRootMeta() {
+
+        List<MetaNode> metaList = migrationService.getTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+        List<MetaNode> metaModel = new ArrayList<>();
+
+        logger.info("Meta nodes:");
+        metaList.forEach(meta -> {
+            String domainName = meta.getDomain().getId().name();
+            logger.info("ModifyRootMeta  metaID:" + domainName);
+            TypeId domain = meta.getDomain();
+            if (meta.isOfType(NodeType.Concept)) {
+                logger.info("Add definedIn- and usedInScheme into the  metaID:" + meta.getId());
+                if (!meta.referenceExist("usedInScheme")) {
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                    logger.info("Adding usedInScheme");
+                } else {
+                    logger.info("usedInScheme exist");
+                    meta.addReference(ReferenceIndex.usedInScheme(domain, 18));
+                }
+
+                if (!meta.referenceExist("definedInScheme")) {
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                    logger.info("Adding definedInScheme");
+                } else {
+                    logger.info("definedInScheme exist");
+                    meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
+                }
+
+            }
+            // Add all other meta types except concept  link
+            if (!meta.isOfType(NodeType.ConceptLink)) {
+                metaModel.add(meta);
+            }
+        });
+        migrationService.updateTypes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, metaModel);
+    }
 }

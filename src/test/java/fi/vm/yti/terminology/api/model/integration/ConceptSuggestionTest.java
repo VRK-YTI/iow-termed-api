@@ -1,11 +1,11 @@
 package fi.vm.yti.terminology.api.model.integration;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import fi.vm.yti.terminology.api.model.termed.Attribute;
+import java.util.Date;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,8 +33,9 @@ public class ConceptSuggestionTest {
     public void getPrefLabel() {
         if (cs != null && cs.getPrefLabel() != null) {
             assertEquals("esimerkki", cs.getPrefLabel().getValue());
-        } else
-            fail("PrefLabel test Failed");
+        } else {
+            fail("GetPrefLabel test Failed");
+        }
     }
 
     @Test
@@ -42,24 +43,27 @@ public class ConceptSuggestionTest {
         System.out.println("test getDefinitionLabel");
         if (cs != null && cs.getDefinition() != null) {
             assertEquals("jotain", cs.getDefinition().getValue());
-        } else
+        } else {
             fail("GetDefinition test Failed");
+        }
     }
 
     @Test
     public void getCreator() {
         if (cs != null && cs.getCreator() != null) {
             assertEquals("45778009-804c-4aba-a836-f5c911ea5ef1", cs.getCreator().toString());
-        } else
+        } else {
             fail("GetCreator test Failed");
+        }
     }
 
     @Test
     public void getterminologyUri() {
         if (cs != null && cs.getTerminologyUri() != null) {
             assertEquals("http://uri.suomi.fi/terminology/kira/", cs.getTerminologyUri());
-        } else
+        } else {
             fail("GetTerminologyUri test Failed");
+        }
     }
 
     @Test
@@ -67,17 +71,14 @@ public class ConceptSuggestionTest {
         String expected = "http://uri.suomi.fi/terminology/kira/";
         if (cs != null && cs.getTerminologyUri() != null) {
             assertEquals(expected, cs.getTerminologyUri());
-        } else
+        } else {
             fail("GetUri test Failed");
+        }
     }
 
     @Test
     public void getCreated() {
-        String expected = "http://uri.suomi.fi/terminology/kira/";
-        if (cs != null && cs.getTerminologyUri() != null) {
-            assertEquals(expected, cs.getTerminologyUri());
-        } else
-            fail("GetUri test Failed");
+        System.err.println("getCreated test not implemented");
+        // TODO
     }
-
 }

@@ -1,11 +1,11 @@
 package fi.vm.yti.terminology.api.model.termed;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
@@ -14,6 +14,10 @@ public final class GenericNode implements Node {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private UUID id = null;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID definedInScheme = null;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID usedInScheme = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String code = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -35,7 +39,7 @@ public final class GenericNode implements Node {
     private final Map<String, List<Attribute>> properties;
     private final Map<String, List<Identifier>> references;
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    private  Map<String, List<Identifier>> referrers = null;
+    private Map<String, List<Identifier>> referrers = null;
 
     // Jackson constructor
     private GenericNode() {
@@ -70,6 +74,7 @@ public final class GenericNode implements Node {
 
     /**
      * Used for import. No given UUID so random uuid is created on upon call
+     *
      * @param code
      * @param uri
      * @param number
@@ -109,14 +114,15 @@ public final class GenericNode implements Node {
 
     /**
      * Simplified creator
-     * @param type typeId containing  vocabulary-id
+     *
+     * @param type       typeId containing  vocabulary-id
      * @param properties Attributes as Property-map
      * @param references References as Identifier-map
      */
     public GenericNode(TypeId type,
                        Map<String, List<Attribute>> properties,
                        Map<String, List<Identifier>> references
-                       ) {
+    ) {
         this.id = randomUUID();
         this.type = type;
         this.properties = properties;
@@ -127,12 +133,40 @@ public final class GenericNode implements Node {
         return id;
     }
 
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getDefinedInScheme() {
+        return definedInScheme;
+    }
+
+    public void setDefinedInScheme(UUID id) {
+        this.definedInScheme = id;
+    }
+
+    public UUID getUsedInScheme() {
+        return usedInScheme;
+    }
+
+    public void setusedInScheme(UUID id) {
+        this.usedInScheme = id;
+    }
+
     public String getCode() {
         return code;
     }
 
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public String getUri() {
         return uri;
+    }
+
+    public void setUri(String uri) {
+        this.uri = uri;
     }
 
     public Long getNumber() {
@@ -147,6 +181,10 @@ public final class GenericNode implements Node {
         return createdDate;
     }
 
+    public void setCreatedDate(Date dt) {
+        createdDate = dt;
+    }
+
     public String getLastModifiedBy() {
         return lastModifiedBy;
     }
@@ -155,12 +193,12 @@ public final class GenericNode implements Node {
         return lastModifiedDate;
     }
 
-    public TypeId getType() {
-        return type;
+    public void setLastModifiedDate(Date dt) {
+        lastModifiedDate = dt;
     }
 
-    public Identifier getIdentifier() {
-        return new Identifier(this.id, this.type);
+    public TypeId getType() {
+        return type;
     }
 
     public Map<String, List<Attribute>> getProperties() {
@@ -173,6 +211,10 @@ public final class GenericNode implements Node {
 
     public Map<String, List<Identifier>> getReferrers() {
         return referrers;
+    }
+
+    public void setReferrers(Map<String, List<Identifier>> referrers) {
+        this.referrers = referrers;
     }
 
     public GenericNode copyToGraph(UUID graphId) {

@@ -1,13 +1,17 @@
 package fi.vm.yti.terminology.api.model.termed;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import static com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 public final class TypeId {
 
     private final NodeType id;
     private final GraphId graph;
+    @JsonInclude(Include.NON_EMPTY)
     private final String uri;
 
     // Jackson constructor
@@ -15,11 +19,14 @@ public final class TypeId {
         this(NodeType.placeholder(), GraphId.placeholder());
     }
 
-    public TypeId(NodeType id, GraphId graph) {
+    public TypeId(NodeType id,
+                  GraphId graph) {
         this(id, graph, "");
     }
 
-    public TypeId(NodeType id, GraphId graph, String uri) {
+    public TypeId(NodeType id,
+                  GraphId graph,
+                  String uri) {
         this.id = id;
         this.graph = graph;
         this.uri = uri;

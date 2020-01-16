@@ -11,7 +11,7 @@ public final class Graph {
 
     private final UUID id;
     private final String code;
-    private final String uri;
+    private String uri;
 
     private final List<String> roles;
     private final Map<String, List<Permission>> permissions;
@@ -22,7 +22,12 @@ public final class Graph {
         this(randomUUID(), "", "", emptyList(), emptyMap(), emptyMap());
     }
 
-    public Graph(UUID id, String code, String uri, List<String> roles, Map<String, List<Permission>> permissions, Map<String, List<Property>> properties) {
+    public Graph(UUID id,
+                 String code,
+                 String uri,
+                 List<String> roles,
+                 Map<String, List<Permission>> permissions,
+                 Map<String, List<Property>> properties) {
         this.id = id;
         this.code = code;
         this.uri = uri;
@@ -41,6 +46,10 @@ public final class Graph {
 
     public String getUri() {
         return uri;
+    }
+
+    public void setUri(String uri) {
+        this.uri = uri;
     }
 
     public List<String> getRoles() {

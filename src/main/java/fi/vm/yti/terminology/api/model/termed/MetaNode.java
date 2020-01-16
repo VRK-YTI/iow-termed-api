@@ -1,10 +1,5 @@
 package fi.vm.yti.terminology.api.model.termed;
 
-import static fi.vm.yti.terminology.api.migration.PropertyUtil.prefLabel;
-import static fi.vm.yti.terminology.api.util.CollectionUtils.mapToList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -14,12 +9,16 @@ import java.util.UUID;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import fi.vm.yti.terminology.api.migration.PropertyUtil;
+import static fi.vm.yti.terminology.api.migration.PropertyUtil.prefLabel;
+import static fi.vm.yti.terminology.api.util.CollectionUtils.mapToList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
-@JsonIgnoreProperties(ignoreUnknown=true)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public final class MetaNode {
 
     private final String id;
-    private final String uri;
+    private String uri;
     private final Long index;
     private final GraphId graph;
     private final Map<String, List<Permission>> permissions;
@@ -58,6 +57,10 @@ public final class MetaNode {
         return uri;
     }
 
+    public void setUri(String uri) {
+        this.uri = uri;
+    }
+
     public TypeId getDomain() {
         return new TypeId(NodeType.valueOf(id), graph, uri);
     }
@@ -84,17 +87,17 @@ public final class MetaNode {
 
     public AttributeMeta getAttribute(String name) {
         return textAttributes.stream()
-                .filter(x -> x.getId().equals(name))
-                .findAny()
-                .orElseThrow(() -> new RuntimeException("Attribute not found with name: " + name));
+            .filter(x -> x.getId().equals(name))
+            .findAny()
+            .orElseThrow(() -> new RuntimeException("Attribute not found with name: " + name));
     }
 
     public boolean attributeExist(String name) {
         boolean rv = false;
         Optional<AttributeMeta> o = textAttributes.stream()
-                .filter(x -> x.getId().equals(name))
-                .findAny();
-        if(o.isPresent())
+            .filter(x -> x.getId().equals(name))
+            .findAny();
+        if (o.isPresent())
             rv = true;
         return rv;
     }
@@ -121,7 +124,8 @@ public final class MetaNode {
         sortAttributes();
     }
 
-    public void changeAttributeIndex(String name, long newIndex) {
+    public void changeAttributeIndex(String name,
+                                     long newIndex) {
 
         AttributeMeta attribute = getAttribute(name);
 
@@ -138,11 +142,21 @@ public final class MetaNode {
         return referenceAttributes;
     }
 
+    public boolean referenceExist(String name) {
+        boolean rv = false;
+        Optional<ReferenceMeta> o = referenceAttributes.stream()
+            .filter(x -> x.getId().equals(name))
+            .findAny();
+        if (o.isPresent())
+            rv = true;
+        return rv;
+    }
+
     public ReferenceMeta getReference(String name) {
         return referenceAttributes.stream()
-                .filter(x -> x.getId().equals(name))
-                .findAny()
-                .orElseThrow(() -> new RuntimeException("Reference not found with name: " + name));
+            .filter(x -> x.getId().equals(name))
+            .findAny()
+            .orElseThrow(() -> new RuntimeException("Reference not found with name: " + name));
     }
 
     public void addReference(ReferenceMeta referenceToAdd) {
@@ -167,7 +181,8 @@ public final class MetaNode {
         sortReferences();
     }
 
-    public void changeReferenceIndex(String name, long newIndex) {
+    public void changeReferenceIndex(String name,
+                                     long newIndex) {
 
         ReferenceMeta reference = getReference(name);
 
@@ -216,7 +231,8 @@ public final class MetaNode {
         this.referenceAttributes.sort(Comparator.comparing(ReferenceMeta::getIndex));
     }
 
-    public void updateLabel(String fi, String en) {
+    public void updateLabel(String fi,
+                            String en) {
         updateProperties(prefLabel(fi, en));
     }
 

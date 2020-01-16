@@ -118,7 +118,7 @@ public class IntegrationController {
         containersRequest.setPageFrom(from);
 
         // Change status into upper case
-        if(status != null) {
+        if (status != null) {
             status = status.stream().map(String::toUpperCase).collect(Collectors.toSet());
         }
         containersRequest.setStatus(status);
@@ -193,7 +193,7 @@ public class IntegrationController {
         request.setLanguage(language);
 
         // Change status into upper case
-        if(status != null){
+        if (status != null) {
             status = status.stream().map(String::toUpperCase).collect(Collectors.toSet());
         }
         request.setStatus(status);

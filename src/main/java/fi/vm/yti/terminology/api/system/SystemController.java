@@ -6,9 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -39,9 +41,11 @@ public class SystemController {
     @Operation(summary = "Get entity counts", description = "Get counts of main entity types, i.e., terminologies and concepts.")
     @ApiResponse(responseCode = "200", description = "Returns terminology and concept counts as JSON")
     @GetMapping(path = "/counts", produces = APPLICATION_JSON_VALUE)
-    ResponseEntity<String> countStatistics() {
+    ResponseEntity<String> countStatistics(
+        @Parameter(description = "Get full counts for all terminologies") @RequestParam(required = false, defaultValue = "false") boolean full
+    ) {
         logger.info("GET /api/v1/system/counts requested");
-        return systemService.countStatistics();
+        return systemService.countStatistics(full);
     }
 
     @Operation(summary = "Get cluster configuration", description = "Get configuration options mainly relevant to terminology UI")

@@ -8,6 +8,7 @@ classes
 *.iml
 out
 /src/main/resources/config/application-local.properties
+/src/main/resources/config/application-docker.properties
 .project
 bin
 *~

@@ -1,14 +1,17 @@
 package fi.vm.yti.terminology.api.index;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import fi.vm.yti.terminology.api.util.JsonUtils;
-
-import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import static fi.vm.yti.terminology.api.util.JsonUtils.*;
 import static java.util.Objects.requireNonNull;
@@ -64,19 +67,20 @@ final class Concept {
         JsonNode properties = conceptJson.get("properties");
         JsonNode references = conceptJson.get("references");
         JsonNode referrers = conceptJson.get("referrers");
+
         Map<String, List<String>> label =
-                properties.has("prefLabel")
-                        ? localizableFromTermedProperties(properties, "prefLabel")
-                        : prefLabelXlReferences.size() > 0
-                        ? localizableFromTermReferences(prefLabelXlReferences, "prefLabel")
-                        : Collections.emptyMap();
+            properties.has("prefLabel")
+                ? localizableFromTermedProperties(properties, "prefLabel")
+                : prefLabelXlReferences.size() > 0
+                ? localizableFromTermReferences(prefLabelXlReferences, "prefLabel")
+                : Collections.emptyMap();
 
         Map<String, List<String>> altLabel =
-                properties.has("altLabel")
-                        ? localizableFromTermedProperties(properties, "altLabel")
-                        : altLabelXlReferences.size() > 0
-                        ? localizableFromTermReferences(altLabelXlReferences, "prefLabel")
-                        : Collections.emptyMap();
+            properties.has("altLabel")
+                ? localizableFromTermedProperties(properties, "altLabel")
+                : altLabelXlReferences.size() > 0
+                ? localizableFromTermReferences(altLabelXlReferences, "prefLabel")
+                : Collections.emptyMap();
 
         Map<String, List<String>> definition = localizableFromTermedProperties(properties, "definition");
 
@@ -90,57 +94,61 @@ final class Concept {
         return new Concept(id, vocabulary, label, altLabel, definition, status, broaderIds, narrowerIds, lastModifiedDate, uri != null ? uri.asText() : null);
     }
 
-    static @NotNull Concept createFromExtJson(@NotNull JsonNode json, @NotNull Vocabulary vocabulary) {
+    static @NotNull Concept createFromExtJson(@NotNull JsonNode json,
+                                              @NotNull Vocabulary vocabulary) {
 
         JsonNode references = json.get("references");
 
         List<JsonNode> prefLabelXlReferences = references.has("prefLabelXl")
-                ? asStream(references.get("prefLabelXl")).collect(toList())
-                : Collections.emptyList();
+            ? asStream(references.get("prefLabelXl")).collect(toList())
+            : Collections.emptyList();
 
         List<JsonNode> altLabelXlReferences = references.has("altLabelXl")
-                ? asStream(references.get("altLabelXl")).collect(toList())
-                : Collections.emptyList();
+            ? asStream(references.get("altLabelXl")).collect(toList())
+            : Collections.emptyList();
 
         return createFromTermedNodes(json, prefLabelXlReferences, altLabelXlReferences, vocabulary);
     }
 
-    static @NotNull Concept createFromAllNodeResult(@NotNull UUID conceptId, @NotNull UUID vocabularyId, @NotNull AllNodesResult allNodesResult) {
+    static @NotNull Concept createFromAllNodeResult(@NotNull UUID conceptId,
+                                                    @NotNull UUID vocabularyId,
+                                                    @NotNull AllNodesResult allNodesResult) {
 
         JsonNode conceptJson = requireNonNull(allNodesResult.getNode(conceptId, "Concept"));
-        JsonNode vocabularyJson = requireNonNull(allNodesResult.getNode(vocabularyId));        
+        JsonNode vocabularyJson = requireNonNull(allNodesResult.getNode(vocabularyId));
         Vocabulary vocabulary = Vocabulary.createFromExtJson(vocabularyJson);
 
         JsonNode references = conceptJson.get("references");
 
         List<JsonNode> prefLabelXLReferences =
-                getReferenceIdsFromTermedReferences(references, "prefLabelXl", "Term").stream()
-                        .map(refId -> {
-                            JsonNode term = allNodesResult.getNode(refId, "Term");
+            getReferenceIdsFromTermedReferences(references, "prefLabelXl", "Term").stream()
+                .map(refId -> {
+                    JsonNode term = allNodesResult.getNode(refId, "Term");
 
-                            if (term == null)
-                                throw new BrokenTermedDataLinkException(vocabulary, refId);
+                    if (term == null)
+                        throw new BrokenTermedDataLinkException(vocabulary, refId);
 
-                            return term;
-                        })
-                        .collect(toList());
+                    return term;
+                })
+                .collect(toList());
 
         List<JsonNode> altLabelXLReferences =
-                getReferenceIdsFromTermedReferences(references, "altLabelXl", "Term").stream()
-                        .map(refId -> {
-                            JsonNode term = allNodesResult.getNode(refId, "Term");
+            getReferenceIdsFromTermedReferences(references, "altLabelXl", "Term").stream()
+                .map(refId -> {
+                    JsonNode term = allNodesResult.getNode(refId, "Term");
 
-                            if (term == null)
-                                throw new BrokenTermedDataLinkException(vocabulary, refId);
+                    if (term == null)
+                        throw new BrokenTermedDataLinkException(vocabulary, refId);
 
-                            return term;
-                        })
-                        .collect(toList());
+                    return term;
+                })
+                .collect(toList());
 
         return createFromTermedNodes(conceptJson, prefLabelXLReferences, altLabelXLReferences, vocabulary);
     }
 
-    static @NotNull Concept createFromIndex(ObjectMapper mapper, @NotNull JsonNode json) {
+    static @NotNull Concept createFromIndex(ObjectMapper mapper,
+                                            @NotNull JsonNode json) {
 
         UUID id = UUID.fromString(json.get("id").textValue());
         List<UUID> broader = jsonToList(json.get("broader"));
@@ -148,7 +156,7 @@ final class Concept {
         Map<String, List<String>> definition = jsonToLocalizable(mapper, json.get("definition"));
         Map<String, List<String>> label = jsonToLocalizable(mapper, json.get("label"));
         Map<String, List<String>> altLabel = jsonToLocalizable(mapper, json.get("altLabel"));
-        String lastModifiedDate = json.has("modified")  ? json.get("modified").textValue() : null;
+        String lastModifiedDate = json.has("modified") ? json.get("modified").textValue() : null;
         String status = json.has("status") ? json.get("status").textValue() : null;
         Vocabulary vocabulary = Vocabulary.createFromIndex(mapper, json.get("vocabulary"));
         String uri = json.has("uri") ? json.get("uri").textValue() : null;
@@ -156,12 +164,14 @@ final class Concept {
         return new Concept(id, vocabulary, label, altLabel, definition, status, broader, narrower, lastModifiedDate, uri);
     }
 
-    private static @NotNull List<UUID> getReferenceIdsFromTermedReferences(@NotNull JsonNode references, @NotNull String referenceName, @NotNull String typeRequirement) {
+    private static @NotNull List<UUID> getReferenceIdsFromTermedReferences(@NotNull JsonNode references,
+                                                                           @NotNull String referenceName,
+                                                                           @NotNull String typeRequirement) {
         if (references.has(referenceName)) {
             return asStream(references.get(referenceName))
-                    .filter(node -> AllNodesResult.typeIs(node, typeRequirement))
-                    .map(node -> UUID.fromString(node.get("id").textValue()))
-                    .collect(toList());
+                .filter(node -> AllNodesResult.typeIs(node, typeRequirement))
+                .map(node -> UUID.fromString(node.get("id").textValue()))
+                .collect(toList());
         } else {
             return Collections.emptyList();
         }
@@ -171,7 +181,8 @@ final class Concept {
         return formDocumentId(vocabulary.getGraphId(), id);
     }
 
-    static @NotNull String formDocumentId(@NotNull UUID graphId, @NotNull UUID conceptId) {
+    static @NotNull String formDocumentId(@NotNull UUID graphId,
+                                          @NotNull UUID conceptId) {
         return graphId + "/" + conceptId;
     }
 
@@ -214,7 +225,7 @@ final class Concept {
             output.put("modified", lastModifiedDate);
         }
 
-        output.put("hasNarrower",narrowerIds.size() > 0);
+        output.put("hasNarrower", narrowerIds.size() > 0);
 
         if (status != null) {
             output.put("status", status);

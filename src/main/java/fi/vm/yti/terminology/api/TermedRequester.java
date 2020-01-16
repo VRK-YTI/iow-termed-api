@@ -168,7 +168,7 @@ public class TermedRequester {
                                                               @NotNull String username,
                                                               @NotNull String password,
                                                               @NotNull TermedContentType contentType) {
-        logger.debug("Termed request: " + method.toString() + ":" + path);
+        logger.debug("Termed request: " + method.toString() + ":" + path + " [" + contentType.getContentType() + " => " + responseType.getSimpleName() + "]");
         return mapExceptions(() -> restTemplate.exchange(createUrl(path, parameters), method, new HttpEntity<>(body, createHeaders(username, password, contentType)), responseType).getBody());
     }
 

@@ -1,0 +1,129 @@
+
+    {
+      "id": "81d2eb4b-3855-11ea-be24-db2d3d09470f",
+      "code": "concept-2052",
+      "uri": "http://uri.suomi.fi/terminology/jhs/J491",
+      "number": 2052,
+      "createdBy": "admin",
+      "createdDate": "2020-01-16T11:44:29Z",
+      "lastModifiedBy": "admin",
+      "lastModifiedDate": "2020-01-16T12:28:44Z",
+      "type": {
+        "id": "Concept",
+        "graph": {
+          "id": "61cf6bde-46e6-40bb-b465-9b2c66bf4ad8"
+        }
+      },
+      "properties": {
+        "definition": [
+          {
+            "lang": "fi",
+            "value": "tiettyö aatteellista tarkoitusta varten perustettu yhdistys",
+            "regex": "(?s)^.*$"
+          }
+        ],
+        "source": [
+          {
+            "lang": "",
+            "value": "Tuotu JHSMETA.fi palvelusta. Laadintahetki: 2013-11-06. Viimeisin muokkaushetki: 2013-11-06. Omistaja: Ydinsanastoryhmö. Laatija: Mikael af Höllström.",
+            "regex": "(?s)^.*$"
+          }
+        ],
+        "status": [
+          {
+            "lang": "",
+            "value": "VALID",
+            "regex": "(?s)^.*$"
+          }
+        ]
+      },
+      "references": {
+        "prefLabelXl": [
+          {
+            "id": "81d31183-3855-11ea-be24-db2d3d09470f",
+            "code": "term-3627",
+            "uri": "http://uri.suomi.fi/terminology/jhs/idelem1551x2",
+            "number": 3627,
+            "createdBy": "admin",
+            "createdDate": "2020-01-16T11:44:29Z",
+            "lastModifiedBy": "admin",
+            "lastModifiedDate": "2020-01-16T11:44:29Z",
+            "type": {
+              "id": "Term",
+              "graph": {
+                "id": "61cf6bde-46e6-40bb-b465-9b2c66bf4ad8"
+              }
+            },
+            "properties": {
+              "prefLabel": [
+                {
+                  "lang": "fi",
+                  "value": "aatteellinen yhdistys",
+                  "regex": "(?s)^.*$"
+                }
+              ],
+              "status": [
+                {
+                  "lang": "",
+                  "value": "DRAFT",
+                  "regex": "(?s)^.*$"
+                }
+              ]
+            },
+            "references": {},
+            "referrers": {}
+          }
+        ],
+        "broader": [
+          {
+            "id": "81d2ea26-3855-11ea-be24-db2d3d09470f",
+            "code": "concept-2298",
+            "uri": "http://uri.suomi.fi/terminology/jhs/J148",
+            "number": 2298,
+            "createdBy": "admin",
+            "createdDate": "2020-01-16T11:44:29Z",
+            "lastModifiedBy": "admin",
+            "lastModifiedDate": "2020-01-16T11:44:29Z",
+            "type": {
+              "id": "Concept",
+              "graph": {
+                "id": "61cf6bde-46e6-40bb-b465-9b2c66bf4ad8"
+              }
+            },
+            "properties": {
+              "definition": [
+                {
+                  "lang": "fi",
+                  "value": "julkisen tehtävän tai aatteellisten päämäärän perusteella kokonaisuuden muodostava yhteisö",
+                  "regex": "(?s)^.*$"
+                }
+              ],
+              "note": [
+                {
+                  "lang": "fi",
+                  "value": "Yhdistyksiä ovat aatteelliset, julkisoikeudelliset ja taloudelliset yhdistykset. Yhdistykset voivat olla rekisteröityjä tai rekisteröimättömiä. Vuonna 2013 kaupparekisteriin on merkittynä vain yksi taloudellinen yhdistys.",
+                  "regex": "(?s)^.*$"
+                }
+              ],
+              "source": [
+                {
+                  "lang": "",
+                  "value": "Tuotu JHSMETA.fi palvelusta. Laadintahetki: 2010-12-08. Viimeisin muokkaushetki: 2013-11-06. Omistaja: Ydinsanastoryhmö. Laatija: Mikael af Höllström.",
+                  "regex": "(?s)^.*$"
+                }
+              ],
+              "status": [
+                {
+                  "lang": "",
+                  "value": "VALID",
+                  "regex": "(?s)^.*$"
+                }
+              ]
+            },
+            "references": {},
+            "referrers": {}
+          }
+        ]
+      },
+      "referrers": {}
+    }

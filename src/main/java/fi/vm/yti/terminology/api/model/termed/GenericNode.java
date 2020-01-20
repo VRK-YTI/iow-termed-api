@@ -1,6 +1,7 @@
 package fi.vm.yti.terminology.api.model.termed;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -10,12 +11,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 
+import java.util.ArrayList;
+
 public final class GenericNode implements Node {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private UUID id = null;
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private UUID definedInScheme = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private UUID usedInScheme = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -37,7 +38,8 @@ public final class GenericNode implements Node {
     private final TypeId type;
 
     private final Map<String, List<Attribute>> properties;
-    private final Map<String, List<Identifier>> references;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Map<String, List<Identifier>> references = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Map<String, List<Identifier>> referrers = null;
 
@@ -137,22 +139,6 @@ public final class GenericNode implements Node {
         this.id = id;
     }
 
-    public UUID getDefinedInScheme() {
-        return definedInScheme;
-    }
-
-    public void setDefinedInScheme(UUID id) {
-        this.definedInScheme = id;
-    }
-
-    public UUID getUsedInScheme() {
-        return usedInScheme;
-    }
-
-    public void setusedInScheme(UUID id) {
-        this.usedInScheme = id;
-    }
-
     public String getCode() {
         return code;
     }
@@ -215,6 +201,36 @@ public final class GenericNode implements Node {
 
     public void setReferrers(Map<String, List<Identifier>> referrers) {
         this.referrers = referrers;
+    }
+
+    public void setReferences(Map<String, List<Identifier>> references) {
+        this.references = references;
+    }
+    /**
+     * Utility function to switch parent terminology
+     */
+    public void addDefinedInScheme(UUID terminologyId, TypeId typeId){
+        Map<String, List<Identifier>> references = getReferences();
+        Identifier definedInScheme = new Identifier(terminologyId, typeId);
+        List<Identifier> disList = new ArrayList<>();
+        disList.add(definedInScheme);
+        if(references == null){
+            // No references, create one
+            System.out.println("no references part");
+            references = new HashMap<>();
+            references.put("definedInScheme", disList);
+            setReferences(references);
+        } else {
+            // Try to find definedInScheme
+            if(references.get("definedInScheme") != null) {
+                // Replace 
+                System.out.println("replacing definedInScheme");
+                references.put("definedInScheme", disList);
+            } else {
+                // references found but missing definedInScheme
+                references.put("definedInScheme", disList);
+            }
+        }
     }
 
     public GenericNode copyToGraph(UUID graphId) {

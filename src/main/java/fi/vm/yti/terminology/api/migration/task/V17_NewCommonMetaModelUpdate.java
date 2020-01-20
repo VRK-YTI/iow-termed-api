@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -24,6 +25,7 @@ import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import fi.vm.yti.terminology.api.model.termed.NodeType;
 import fi.vm.yti.terminology.api.model.termed.TypeId;
 import fi.vm.yti.terminology.api.model.termed.VocabularyNodeType;
+import fi.vm.yti.terminology.api.util.JsonUtils;
 
 /**
  * Migration for YTI-1159, New common metamodel ToDo:
@@ -105,8 +107,16 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
                     // Just in case, generate new id:s for whole graph so they are unique.
                     logger.info("Call regenerate id:s for " + id);
                     migrationService.regeneratieIds(gid);
-                    // add definedInScheme and update graph-id links
-                    ModifyLinks(gid, terminologyId);
+                    // Graph id changed, so resolve new one before modifying links. Important for definedInScheme relation
+                    GenericNode gn = migrationService.getNode(n.getUri());
+                    if(gn != null && gn.getId() != null){
+                        terminologyId = gn.getId();
+                        // add definedInScheme and update graph-id links
+                        ModifyLinks(gid, terminologyId);
+                    } else {
+                        logger.error("Can't find new id for "+n.getUri());
+                    }
+
                     // Then delete original graph.
                     migrationService.deleteGraph(gid);
                 } else {
@@ -208,7 +218,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         GenericNode gn = migrationService.replaceIdRef(o.getId(), o.getType().getGraphId(),
             DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
         logger.debug("Replace graph references for <" + o.getUri() + "> id:" + o.getId() + " code:" + gn.getCode());
-        gn.setDefinedInScheme(terminologyId);
+        // Add definedInScheme reference link
+        gn.addDefinedInScheme(terminologyId, new TypeId(NodeType.TerminologicalVocabulary, new GraphId(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID)));
         // remove uri
         // gn.setUri(null);
         // remove up code
@@ -269,6 +280,7 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         logger.info("UpdateNodeList = " + updateNodeList.size());
         if (updateNodeList != null && !updateNodeList.isEmpty()) {
             logger.info("Update following nodes count:" + updateNodeList.size());
+//            JsonUtils.prettyPrintJson(updateNodeList);
             migrationService.updateAndDeleteInternalNodes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID,
                 new GenericDeleteModifyAndSave(Collections.<Identifier>emptyList(), updateNodeList,
                     Collections.<GenericNode>emptyList()));

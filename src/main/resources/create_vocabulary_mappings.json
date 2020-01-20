@@ -60,6 +60,12 @@
     "hasNarrower": {
       "type": "boolean"
     },
+    "definedInScheme": {
+      "type": "keyword"
+    },
+    "usedInScheme": {
+      "type": "keyword"
+    },
     "id": {
       "type": "keyword"
     },

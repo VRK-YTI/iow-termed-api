@@ -439,6 +439,20 @@ public class MigrationService {
         return node;
     }
 
+    public GenericNode getNode(String namespace) {
+        GenericNode node = null;
+        Parameters params = new Parameters();
+        params.add("select", "*");
+        params.add("where", "uri:" + namespace);
+        List<GenericNode> nodes = termedRequester.exchange("/node-trees", GET, params,
+            new ParameterizedTypeReference<List<GenericNode>>() {
+            });
+        if (!nodes.isEmpty() && nodes.size() == 1) {
+            node = nodes.get(0);
+        }
+        return node;
+    }
+
     public JsonNode getNodeAsJson(UUID id) {
         Parameters params = new Parameters();
         params.add("select", "*");

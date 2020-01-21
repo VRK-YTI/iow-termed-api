@@ -60,6 +60,14 @@
     "hasNarrower": {
       "type": "boolean"
     },
+    "definedInScheme": {
+      "type": "keyword",
+      "index": false
+    },
+    "usedInScheme": {
+      "type": "keyword",
+      "index": false
+    },
     "status": {
       "type": "keyword"
     },

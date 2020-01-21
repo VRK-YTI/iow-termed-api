@@ -9,6 +9,8 @@ import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import fi.vm.yti.terminology.api.util.JsonUtils;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -28,6 +30,8 @@ final class Concept {
     private final String status;
     private final List<UUID> broaderIds;
     private final List<UUID> narrowerIds;
+    private final List<UUID> definedInScheme;
+    private final List<UUID> usedInScheme;
     @Nullable
     private final String lastModifiedDate;
     @Nullable
@@ -41,6 +45,8 @@ final class Concept {
                     @Nullable String status,
                     List<UUID> broaderIds,
                     List<UUID> narrowerIds,
+                    List<UUID> usedInScheme,
+                    List<UUID> definedInScheme,
                     @Nullable String lastModifiedDate,
                     @Nullable String uri) {
 
@@ -52,6 +58,8 @@ final class Concept {
         this.status = status != null ? status : "DRAFT";
         this.broaderIds = broaderIds;
         this.narrowerIds = narrowerIds;
+        this.usedInScheme = usedInScheme;
+        this.definedInScheme = definedInScheme;
         this.lastModifiedDate = lastModifiedDate;
         this.uri = uri;
     }
@@ -87,11 +95,11 @@ final class Concept {
         String status = getSinglePropertyValue(properties, "status");
 
         List<UUID> broaderIds = getReferenceIdsFromTermedReferences(references, "broader", "Concept");
-        List<UUID> narrowerIds = getReferenceIdsFromTermedReferences(referrers, "broader", "Concept");
-
+        List<UUID> narrowerIds = getReferenceIdsFromTermedReferences(referrers, "narrower", "Concept");
+        List<UUID> usedInScheme = getReferenceIdsFromTermedReferences(references, "usedInScheme", "TerminologicalVocabulary");
+        List<UUID> definedInScheme = getReferenceIdsFromTermedReferences(references, "definedInScheme", "TerminologicalVocabulary");                                                                                                
         JsonNode uri = conceptJson.get("uri");
-
-        return new Concept(id, vocabulary, label, altLabel, definition, status, broaderIds, narrowerIds, lastModifiedDate, uri != null ? uri.asText() : null);
+        return new Concept(id, vocabulary, label, altLabel, definition, status, broaderIds, narrowerIds, usedInScheme, definedInScheme, lastModifiedDate, uri != null ? uri.asText() : null);
     }
 
     static @NotNull Concept createFromExtJson(@NotNull JsonNode json,
@@ -153,6 +161,8 @@ final class Concept {
         UUID id = UUID.fromString(json.get("id").textValue());
         List<UUID> broader = jsonToList(json.get("broader"));
         List<UUID> narrower = jsonToList(json.get("narrower"));
+        List<UUID> definedInScheme = jsonToList(json.get("definedInScheme"));
+        List<UUID> usedInScheme = jsonToList(json.get("usedInScheme"));
         Map<String, List<String>> definition = jsonToLocalizable(mapper, json.get("definition"));
         Map<String, List<String>> label = jsonToLocalizable(mapper, json.get("label"));
         Map<String, List<String>> altLabel = jsonToLocalizable(mapper, json.get("altLabel"));
@@ -161,13 +171,13 @@ final class Concept {
         Vocabulary vocabulary = Vocabulary.createFromIndex(mapper, json.get("vocabulary"));
         String uri = json.has("uri") ? json.get("uri").textValue() : null;
 
-        return new Concept(id, vocabulary, label, altLabel, definition, status, broader, narrower, lastModifiedDate, uri);
+        return new Concept(id, vocabulary, label, altLabel, definition, status, broader, narrower, definedInScheme, usedInScheme, lastModifiedDate, uri);
     }
 
     private static @NotNull List<UUID> getReferenceIdsFromTermedReferences(@NotNull JsonNode references,
                                                                            @NotNull String referenceName,
                                                                            @NotNull String typeRequirement) {
-        if (references.has(referenceName)) {
+        if (references.has(referenceName)) {       
             return asStream(references.get(referenceName))
                 .filter(node -> AllNodesResult.typeIs(node, typeRequirement))
                 .map(node -> UUID.fromString(node.get("id").textValue()))
@@ -217,6 +227,8 @@ final class Concept {
         output.set("broader", listToJson(mapper, broaderIds));
         output.set("narrower", listToJson(mapper, narrowerIds));
         output.set("definition", localizableToJson(mapper, definition));
+        output.set("definedInScheme",listToJson(mapper, definedInScheme));
+        output.set("usedInScheme", listToJson(mapper, usedInScheme));
         output.set("label", localizableToJson(mapper, label));
         output.set("altLabel", localizableToJson(mapper, altLabel));
         output.set("sortByLabel", localizableToJson(mapper, getSingleLabelAsLower()));
@@ -234,9 +246,9 @@ final class Concept {
         if (uri != null) {
             output.put("uri", uri);
         }
-
         output.set("vocabulary", vocabulary.toElasticSearchObject(mapper));
-
+        //JsonUtils.prettyPrintJson(output);
+//System.err.println("definedInScheme="+this.definedInScheme);
         return output;
     }
 }

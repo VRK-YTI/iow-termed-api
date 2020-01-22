@@ -43,7 +43,7 @@ public class SystemService {
         if (full) {
             String terminologyStatistics = countStatistics();
             return new ResponseEntity<>("{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts
-                + ", \"statistics:\"" + terminologyStatistics + " }", HttpStatus.OK);
+                + ", \"statistics\":[" + terminologyStatistics + " ]}", HttpStatus.OK);
         } else {
             return new ResponseEntity<>(
                 "{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts + " }", HttpStatus.OK);
@@ -72,9 +72,12 @@ public class SystemService {
         return rv;
     }
 
-    private int countConcepts(UUID graphId) {
+    private int countConcepts(UUID terminologyId) {
         int rv = 0;
-        String url = "/node-count/?where=type.id:Concept AND type.graph.id:" + graphId;
+        // http://localhost:9102/api/node-count?select=*&where=references.definedInScheme.id:6610ec2d-3b87-11ea-9fee-85b8cab3faae
+
+        String url = "/node-count?where=references.definedInScheme.id:" + terminologyId;
+        System.out.println("countConcepts:"+url);
         String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
         logger.info("countConcepts rv=" + count);
         if (count != null) {
@@ -94,7 +97,7 @@ public class SystemService {
                 iduri[] ids = objectMapper.readValue(terminologies, iduri[].class);
                 for (iduri o : ids) {
                     System.out.println("uri:" + o.getUri() + ",  id:" + o.getId());
-                    statistics.add("{\"uri:\"" + o.getUri() + "\", \"count:\"" + countConcepts(o.getId()) + "}");
+                    statistics.add("{\"uri\":"+"\"" + o.getUri() + "\", \"count\":" + countConcepts(o.getId()) + "}");
                     logger.info("countConcepts for " + o.getUri() + " conceptCount:" + countConcepts(o.getId()));
                 }
             } catch (IOException ioe) {

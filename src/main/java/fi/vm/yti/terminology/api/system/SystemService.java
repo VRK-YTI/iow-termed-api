@@ -26,8 +26,7 @@ public class SystemService {
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public SystemService(final TermedRequester termedRequester,
-                         final ObjectMapper objectMapper) {
+    public SystemService(final TermedRequester termedRequester, final ObjectMapper objectMapper) {
         this.termedRequester = termedRequester;
         this.objectMapper = objectMapper;
     }
@@ -43,10 +42,10 @@ public class SystemService {
         if (full) {
             String terminologyStatistics = countStatistics();
             return new ResponseEntity<>("{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts
-                + ", \"statistics\":[" + terminologyStatistics + " ]}", HttpStatus.OK);
+                    + ", \"statistics\":[" + terminologyStatistics + " ]}", HttpStatus.OK);
         } else {
             return new ResponseEntity<>(
-                "{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts + " }", HttpStatus.OK);
+                    "{ \"terminologyCount\":" + terminologies + ", \"conceptCount\":" + concepts + " }", HttpStatus.OK);
         }
     }
 
@@ -54,7 +53,9 @@ public class SystemService {
         int rv = 0;
         String url = "/node-count?where=type.id:TerminologicalVocabulary";
         String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
-        logger.info("countTerminologies rv=" + count);
+        if (logger.isDebugEnabled()) {
+            logger.debug("countTerminologies rv=" + count);
+        }
         if (count != null) {
             rv = Integer.parseInt(count);
         }
@@ -65,7 +66,9 @@ public class SystemService {
         int rv = 0;
         String url = "/node-count/?where=type.id:Concept";
         String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
-        logger.info("countConcepts rv=" + count);
+        if (logger.isDebugEnabled()) {
+            logger.debug("countConcepts rv=" + count);
+        }
         if (count != null) {
             rv = Integer.parseInt(count);
         }
@@ -74,12 +77,11 @@ public class SystemService {
 
     private int countConcepts(UUID terminologyId) {
         int rv = 0;
-        // http://localhost:9102/api/node-count?select=*&where=references.definedInScheme.id:6610ec2d-3b87-11ea-9fee-85b8cab3faae
-
         String url = "/node-count?where=references.definedInScheme.id:" + terminologyId;
-        System.out.println("countConcepts:"+url);
         String count = termedRequester.exchange(url, GET, Parameters.empty(), String.class);
-        logger.info("countConcepts rv=" + count);
+        if (logger.isDebugEnabled()) {
+            logger.debug("countConcepts rv=" + count);
+        }
         if (count != null) {
             rv = Integer.parseInt(count);
         }
@@ -96,9 +98,10 @@ public class SystemService {
             try {
                 iduri[] ids = objectMapper.readValue(terminologies, iduri[].class);
                 for (iduri o : ids) {
-                    System.out.println("uri:" + o.getUri() + ",  id:" + o.getId());
-                    statistics.add("{\"uri\":"+"\"" + o.getUri() + "\", \"count\":" + countConcepts(o.getId()) + "}");
-                    logger.info("countConcepts for " + o.getUri() + " conceptCount:" + countConcepts(o.getId()));
+                    statistics.add("{\"uri\":" + "\"" + o.getUri() + "\", \"count\":" + countConcepts(o.getId()) + "}");
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("countConcepts for " + o.getUri() + " conceptCount:" + countConcepts(o.getId()));
+                    }
                 }
             } catch (IOException ioe) {
                 ioe.printStackTrace();
@@ -118,8 +121,7 @@ public class SystemService {
             this(null, null);
         }
 
-        public iduri(UUID id,
-                     String uri) {
+        public iduri(UUID id, String uri) {
             this.id = id;
             this.uri = uri;
         }

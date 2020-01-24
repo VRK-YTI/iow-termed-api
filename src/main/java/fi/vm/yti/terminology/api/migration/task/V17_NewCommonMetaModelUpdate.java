@@ -8,6 +8,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,6 +21,7 @@ import fi.vm.yti.migration.MigrationTask;
 import fi.vm.yti.terminology.api.migration.DomainIndex;
 import fi.vm.yti.terminology.api.migration.MigrationService;
 import fi.vm.yti.terminology.api.migration.ReferenceIndex;
+import fi.vm.yti.terminology.api.model.termed.Attribute;
 import fi.vm.yti.terminology.api.model.termed.GenericDeleteModifyAndSave;
 import fi.vm.yti.terminology.api.model.termed.GenericNode;
 import fi.vm.yti.terminology.api.model.termed.Graph;
@@ -32,8 +38,7 @@ import fi.vm.yti.terminology.api.util.JsonUtils;
  * <p>
  * * LinkNode poisto ja siihen liittyvät assiaatiot + Poistetaan
  * createTerminologicalConceptLinkMeta() + Poistetaan
- * ReferenceIndex.relatedMatch +
- * Muutetaan viittaamaan Concept-nodeen:
+ * ReferenceIndex.relatedMatch + Muutetaan viittaamaan Concept-nodeen:
  * ReferenceIndex.exactMatch ja ReferenceIndex.closeMatch
  * <p>
  * <p>
@@ -73,6 +78,8 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
 
     @Override
     public void migrate() {
+        // Remove priority field from graphs before removing it from meta
+        removePriority();
         // Add defined- and usedInScheme
         addSchemesToRootMeta();
         // update all metamodels
@@ -98,8 +105,7 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         vocabularies.forEach(id -> {
             GenericNode n = migrationService.getNode(id);
             if (n != null) {
-                logger.info(
-                    "Terminology:" + n.getId() + " uri:" + n.getUri() + " graph:" + n.getType().getGraphId());
+                logger.info("Terminology:" + n.getId() + " uri:" + n.getUri() + " graph:" + n.getType().getGraphId());
                 UUID gid = n.getType().getGraphId();
                 UUID terminologyId = n.getId();
                 // If vocabulary graph id is not yet under main graph, update references
@@ -107,14 +113,16 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
                     // Just in case, generate new id:s for whole graph so they are unique.
                     logger.info("Call regenerate id:s for " + id);
                     migrationService.regeneratieIds(gid);
-                    // Graph id changed, so resolve new one before modifying links. Important for definedInScheme relation
+                    logger.info("Call regenerate id:s executed");
+                    // Graph id changed, so resolve new one before modifying links. Important for
+                    // definedInScheme relation
                     GenericNode gn = migrationService.getNode(n.getUri());
-                    if(gn != null && gn.getId() != null){
+                    if (gn != null && gn.getId() != null) {
                         terminologyId = gn.getId();
                         // add definedInScheme and update graph-id links
                         ModifyLinks(gid, terminologyId);
                     } else {
-                        logger.error("Can't find new id for "+n.getUri());
+                        logger.error("Can't find new id for " + n.getUri());
                     }
 
                     // Then delete original graph.
@@ -125,8 +133,42 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
             }
         });
 
-        // After migration, modify meta again. This time we  have only root node so
+        // After migration, modify meta again. This time we have only root node so
         modifyRootMeta();
+    }
+
+    private void removePriority() {
+
+        List<UUID> nodes = migrationService.findPrioritynodes();
+        System.out.println("Remove Priority!");
+
+        nodes.forEach(id -> {
+            GenericNode gn = migrationService.getNode(id);
+            if (gn != null) {
+                gn.getProperties().remove("priority");
+                GenericNode node = new GenericNode(gn.getId(), gn.getType(), gn.getProperties(),
+                        Collections.emptyMap());
+                node.setId(gn.getId());
+                List<Attribute> aList = new ArrayList<>();
+                gn.getProperties().put("priority", aList);
+                node.setProperties(gn.getProperties());
+                node.setReferences(null);
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode jsonNode = mapper.valueToTree(node);
+                // Change priority from [] into the [{}]
+                ArrayNode j = (ArrayNode) jsonNode.findPath("properties").get("priority");
+                j.addObject();
+                try {
+                    String message = new String(mapper.writeValueAsString(jsonNode).getBytes());
+                    logger.info("Update message"+message); 
+                    //patchNodeWithJson(UUID graphId, NodeType type, UUID nodeId, String message)    
+                    migrationService.patchNodeWithJson(node.getType().getGraphId(), node.getType().getId(), node.getId(), message); 
+                } catch (JsonProcessingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 
     /**

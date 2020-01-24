@@ -1,6 +1,7 @@
 package fi.vm.yti.terminology.api.migration;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpServerErrorException;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,8 +59,7 @@ public class MigrationService {
     private final ObjectMapper objectMapper;
 
     @Autowired
-    MigrationService(TermedRequester termedRequester,
-                     ObjectMapper objectMapper) {
+    MigrationService(TermedRequester termedRequester, ObjectMapper objectMapper) {
         this.termedRequester = termedRequester;
         this.objectMapper = objectMapper;
     }
@@ -76,7 +77,7 @@ public class MigrationService {
 
     public void deleteGraph(UUID graphId) {
         log.debug("Delete graph:" + graphId + " nodes");
-        // First delete nodes 
+        // First delete nodes
         Parameters params = new Parameters();
         params.add("disconnect", "true");
         termedRequester.exchange("/graphs/" + graphId + "/nodes", DELETE, Parameters.empty(), String.class);
@@ -95,12 +96,11 @@ public class MigrationService {
         params.add("max", "-1");
 
         return requireNonNull(termedRequester.exchange("/node-trees", GET, params,
-            new ParameterizedTypeReference<List<Identifier>>() {
-            }));
+                new ParameterizedTypeReference<List<Identifier>>() {
+                }));
     }
 
-    public List<Identifier> getAllNamedReferences(UUID graphId,
-                                                  String type) {
+    public List<Identifier> getAllNamedReferences(UUID graphId, String type) {
         List<Identifier> rv = null;
         Parameters params = new Parameters();
         params.add("select", "id");
@@ -108,13 +108,13 @@ public class MigrationService {
         params.add("max", "-1");
         if (graphId == null) {
             rv = termedRequester.exchange("/node-trees/", GET, params,
-                new ParameterizedTypeReference<List<Identifier>>() {
-                });
+                    new ParameterizedTypeReference<List<Identifier>>() {
+                    });
         } else {
             // id given, so get objects under it
             rv = termedRequester.exchange("/graphs/" + graphId + "/node-trees/", GET, params,
-                new ParameterizedTypeReference<List<Identifier>>() {
-                });
+                    new ParameterizedTypeReference<List<Identifier>>() {
+                    });
         }
         return rv;
     }
@@ -125,10 +125,7 @@ public class MigrationService {
      * @param graphId
      * @param identifiers
      */
-    public void removeNodes(boolean sync,
-                            boolean disconnect,
-                            UUID graphId,
-                            List<Identifier> identifiers) {
+    public void removeNodes(boolean sync, boolean disconnect, UUID graphId, List<Identifier> identifiers) {
         Parameters params = new Parameters();
         params.add("batch", "true");
         params.add("disconnect", Boolean.toString(disconnect));
@@ -148,8 +145,7 @@ public class MigrationService {
         termedRequester.exchange("/nodes", DELETE, params, String.class, identifiers, "admin", "user");
     }
 
-    private void removeTypes(UUID graphId,
-                             List<MetaNode> metaNodes) {
+    private void removeTypes(UUID graphId, List<MetaNode> metaNodes) {
 
         Parameters params = new Parameters();
         params.add("batch", "true");
@@ -174,7 +170,8 @@ public class MigrationService {
         Parameters params = new Parameters();
 
         String rv = null;
-        termedRequester.exchange("/graphs/" + graphId + "/node-ids", DELETE, params, String.class, rv);
+        String path = "/graphs/" + graphId + "/node-ids";
+        termedRequester.exchange(path, DELETE, params, String.class, rv);
         log.info("regenerateIds for " + graphId.toString() + " returned:" + rv);
     }
 
@@ -201,40 +198,31 @@ public class MigrationService {
         return termedRequester.exchange(path, GET, params, Graph.class);
     }
 
-    public void updateTypes(VocabularyNodeType vocabularyNodeType,
-                            Consumer<MetaNode> modifier) {
+    public void updateTypes(VocabularyNodeType vocabularyNodeType, Consumer<MetaNode> modifier) {
         log.info("migrationService.UpdateTypes: " + vocabularyNodeType.toString());
         findTerminologyGraphList().forEach(graphId -> updateTypes(graphId, modifier));
     }
 
-    public void updateTypes(VocabularyNodeType vocabularyNodeType,
-                            NodeType nodeType,
-                            Consumer<MetaNode> modifier) {
+    public void updateTypes(VocabularyNodeType vocabularyNodeType, NodeType nodeType, Consumer<MetaNode> modifier) {
         log.info("migrationService.UpdateTypes2:" + VocabularyNodeType.values());
         findTerminologyGraphList().forEach(graphId -> updateTypes(graphId, nodeType, modifier));
     }
 
-    public void updateTypes(VocabularyNodeType vocabularyNodeType,
-                            Predicate<MetaNode> filter,
-                            Consumer<MetaNode> modifier) {
+    public void updateTypes(VocabularyNodeType vocabularyNodeType, Predicate<MetaNode> filter,
+            Consumer<MetaNode> modifier) {
         log.info("migrationService.UpdateTypes3:" + VocabularyNodeType.values());
         findTerminologyGraphList().forEach(graphId -> updateTypes(graphId, filter, modifier));
     }
 
-    public void updateTypes(UUID graphId,
-                            Consumer<MetaNode> modifier) {
+    public void updateTypes(UUID graphId, Consumer<MetaNode> modifier) {
         updateTypes(graphId, type -> true, modifier);
     }
 
-    public void updateTypes(UUID graphId,
-                            NodeType nodeType,
-                            Consumer<MetaNode> modifier) {
+    public void updateTypes(UUID graphId, NodeType nodeType, Consumer<MetaNode> modifier) {
         updateTypes(graphId, type -> type.isOfType(nodeType), modifier);
     }
 
-    public void updateTypes(UUID graphId,
-                            Predicate<MetaNode> filter,
-                            Consumer<MetaNode> modifier) {
+    public void updateTypes(UUID graphId, Predicate<MetaNode> filter, Consumer<MetaNode> modifier) {
 
         List<MetaNode> types = filterToList(getTypes(graphId), filter);
 
@@ -245,8 +233,7 @@ public class MigrationService {
         updateTypes(graphId, types);
     }
 
-    public void updateTypes(UUID graphId,
-                            List<MetaNode> metaNodes) {
+    public void updateTypes(UUID graphId, List<MetaNode> metaNodes) {
 
         Parameters params = new Parameters();
         params.add("batch", "true");
@@ -256,14 +243,12 @@ public class MigrationService {
         termedRequester.exchange("/graphs/" + graphId + "/types", POST, params, String.class, metaNodes);
     }
 
-    public void deleteTypes(VocabularyNodeType vocabularyNodeType,
-                            String typeName) {
+    public void deleteTypes(VocabularyNodeType vocabularyNodeType, String typeName) {
         log.info("DeleteTypes id:" + vocabularyNodeType.values() + " type:" + typeName);
         findTerminologyIdList().forEach(graphId -> deleteType(graphId, typeName));
     }
 
-    public void deleteType(UUID graphId,
-                           String typeName) {
+    public void deleteType(UUID graphId, String typeName) {
         log.info("DeleteType id:" + graphId.toString() + " type:" + typeName);
         termedRequester.exchange("/graphs/" + graphId + "/types/" + typeName, DELETE, Parameters.empty(), String.class);
     }
@@ -275,8 +260,8 @@ public class MigrationService {
         String path = graphId != null ? "/graphs/" + graphId + "/types" : "/types";
         log.debug("getTypes() PATH=" + path);
         return requireNonNull(
-            termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<List<MetaNode>>() {
-            }));
+                termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<List<MetaNode>>() {
+                }));
     }
 
     public @NotNull MetaNode getType(TypeId typeId) {
@@ -299,19 +284,10 @@ public class MigrationService {
         params.add("max", "-1");
 
         List<Identifier> idList = termedRequester.exchange("/node-trees", GET, params,
-            new ParameterizedTypeReference<List<Identifier>>() {
-            });
+                new ParameterizedTypeReference<List<Identifier>>() {
+                });
 
         List<UUID> termVocs = idList.stream().map(Identifier::getId).collect(toList());
-
-        params = new Parameters();
-        params.add("select", "type");
-        params.add("where", "type.id:TerminologicalVocabulary");
-        params.add("max", "-1");
-
-        List<Type> ids = termedRequester.exchange("/node-trees", GET, params,
-            new ParameterizedTypeReference<List<Type>>() {
-            });
         return termVocs;
     }
 
@@ -324,8 +300,8 @@ public class MigrationService {
         params.add("max", "-1");
 
         List<Type> ids = termedRequester.exchange("/node-trees", GET, params,
-            new ParameterizedTypeReference<List<Type>>() {
-            });
+                new ParameterizedTypeReference<List<Type>>() {
+                });
 
         ids.forEach(o -> {
             rv.add(o.getType().getGraphId());
@@ -334,13 +310,34 @@ public class MigrationService {
         return rv;
     }
 
+    /**
+     * Get list of nodes containing priority-field
+     * http://localhost:9102/api/node-trees?select=id&where=where=properties.priority:*
+     *
+     * @param vocabularyType
+     * @return
+     */
+    public List<UUID> findPrioritynodes() {
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("where", "properties.priority:*");
+        params.add("max", "-1");
+
+        List<Identifier> idList = termedRequester.exchange("/node-trees", GET, params,
+                new ParameterizedTypeReference<List<Identifier>>() {
+                });
+
+        List<UUID> termVocs = idList.stream().map(Identifier::getId).collect(toList());
+        return termVocs;
+    }
+
     public List<Graph> getGraphs() {
 
         Parameters params = new Parameters();
         params.add("max", "-1");
         return requireNonNull(
-            termedRequester.exchange("/graphs", GET, params, new ParameterizedTypeReference<List<Graph>>() {
-            }));
+                termedRequester.exchange("/graphs", GET, params, new ParameterizedTypeReference<List<Graph>>() {
+                }));
     }
 
     public boolean updateGraph(Graph g) {
@@ -365,12 +362,46 @@ public class MigrationService {
         }
     }
 
+    public void updateNodesWithJson(GenericNode node) {
+        try {
+            JsonNode jn = objectMapper.readTree(objectMapper.writeValueAsString(node));
+            updateNodesWithJson(jn);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void updateNodesWithJson(JsonNode json) {
 
         Parameters params = new Parameters();
         params.add("batch", "true");
 
         this.termedRequester.exchange("/nodes", POST, params, String.class, json);
+    }
+
+    public void patchNodesWithNode(GenericNode gn) {
+        Parameters params = new Parameters();
+        // Replace given values or lists.
+        params.add("append", "false");
+        String message;
+        try {
+            message = new String(objectMapper.writeValueAsString(gn).getBytes(), StandardCharsets.UTF_8);
+            String path = "/graphs/"+gn.getType().getGraphId()+"/types/"+gn.getType().getId()+"/nodes/"+gn.getId()+"/";
+            log.debug("PATH("+path+") message:" + message);
+            this.termedRequester.exchange(path, PATCH, params, String.class, message);
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    public void patchNodeWithJson(UUID graphId, NodeType type, UUID nodeId, String message) {
+        Parameters params = new Parameters();
+        // Replace given values or lists.
+        params.add("append", "false");
+        String path = "/graphs/"+graphId+"/types/"+type+"/nodes/"+nodeId+"/";
+        log.debug("PATH("+path+") message:" + message);
+        this.termedRequester.exchange(path, PATCH, params, String.class, message);
     }
 
     public boolean isSchemaInitialized() {
@@ -381,8 +412,8 @@ public class MigrationService {
     public List<GenericNode> getNodes(TypeId domain) {
         String url = "/graphs/" + domain.getGraphId() + "/types/" + domain.getId().name() + "/nodes/";
         List<GenericNode> result = termedRequester.exchange(url, GET, Parameters.empty(),
-            new ParameterizedTypeReference<List<GenericNode>>() {
-            });
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
 
         return result != null ? result : emptyList();
     }
@@ -392,8 +423,8 @@ public class MigrationService {
         params.add("max", "-1");
         String url = "/graphs/" + graphId + "/nodes/";
         List<GenericNode> result = termedRequester.exchange(url, GET, params,
-            new ParameterizedTypeReference<List<GenericNode>>() {
-            });
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
 
         return result != null ? result : emptyList();
     }
@@ -410,17 +441,15 @@ public class MigrationService {
         return getAllTypedNodes(graphId, "Concept");
     }
 
-    public List<GenericNode> getAllTypedNodes(UUID graphId,
-                                              String type) {
+    public List<GenericNode> getAllTypedNodes(UUID graphId, String type) {
         String url = "/graphs/" + graphId + "/types/" + type + "/nodes/";
         List<GenericNode> result = termedRequester.exchange(url, GET, Parameters.empty(),
-            new ParameterizedTypeReference<List<GenericNode>>() {
-            });
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
         return result != null ? result : emptyList();
     }
 
-    public GenericNode getNode(TypeId domain,
-                               UUID id) {
+    public GenericNode getNode(TypeId domain, UUID id) {
         String url = "/graphs/" + domain.getGraphId() + "/types/" + domain.getId().name() + "/nodes/" + id;
         return requireNonNull(termedRequester.exchange(url, GET, Parameters.empty(), GenericNode.class));
     }
@@ -431,8 +460,8 @@ public class MigrationService {
         params.add("select", "*");
         params.add("where", "id:" + id.toString());
         List<GenericNode> nodes = termedRequester.exchange("/node-trees", GET, params,
-            new ParameterizedTypeReference<List<GenericNode>>() {
-            });
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
         if (!nodes.isEmpty() && nodes.size() == 1) {
             node = nodes.get(0);
         }
@@ -445,8 +474,8 @@ public class MigrationService {
         params.add("select", "*");
         params.add("where", "uri:" + namespace);
         List<GenericNode> nodes = termedRequester.exchange("/node-trees", GET, params,
-            new ParameterizedTypeReference<List<GenericNode>>() {
-            });
+                new ParameterizedTypeReference<List<GenericNode>>() {
+                });
         if (!nodes.isEmpty() && nodes.size() == 1) {
             node = nodes.get(0);
         }
@@ -461,9 +490,7 @@ public class MigrationService {
         return node;
     }
 
-    public GenericNode replaceIdRef(UUID id,
-                                    UUID source,
-                                    UUID target) {
+    public GenericNode replaceIdRef(UUID id, UUID source, UUID target) {
         GenericNode node = null;
         Parameters params = new Parameters();
         params.add("select", "*");
@@ -484,18 +511,15 @@ public class MigrationService {
         return node;
     }
 
-    public boolean updateAndDeleteInternalNodes(GenericDeleteModifyAndSave operation,
-                                                boolean sync) {
+    public boolean updateAndDeleteInternalNodes(GenericDeleteModifyAndSave operation, boolean sync) {
         boolean rv = true;
         Parameters params = new Parameters();
         params.add("changeset", "true");
         params.add("sync", String.valueOf(sync));
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-            log.debug("Update:" + mapper.writeValueAsString(operation));
-            this.termedRequester.exchange("/nodes", POST, params, String.class, mapper.writeValueAsString(operation),
-                TermedContentType.JSON);
+            log.debug("Update:" + objectMapper.writeValueAsString(operation));
+            this.termedRequester.exchange("/nodes", POST, params, String.class, objectMapper.writeValueAsString(operation),
+                    TermedContentType.JSON);
         } catch (HttpServerErrorException ex) {
             log.error("Incoming update list contains:" + operation.getSave().size() + " items");
             log.error("Update failed:" + ex.getResponseBodyAsString());
@@ -509,18 +533,15 @@ public class MigrationService {
         return rv;
     }
 
-    public boolean updateAndDeleteInternalNodes(UUID graphId,
-                                                GenericDeleteModifyAndSave operation) {
+    public boolean updateAndDeleteInternalNodes(UUID graphId, GenericDeleteModifyAndSave operation) {
         boolean rv = true;
         Parameters params = new Parameters();
         params.add("changeset", "true");
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-            log.debug("Update graph:" + graphId + "  value:" + mapper.writeValueAsString(operation));
+            log.debug("Update graph:" + graphId + "  value:" + objectMapper.writeValueAsString(operation));
             String path = ("/graphs/" + graphId + "/nodes/");
             HttpMethod method = POST;
-            String body = mapper.writeValueAsString(operation);
+            String body = new String(objectMapper.writeValueAsString(operation).getBytes(), StandardCharsets.UTF_8);
             TermedContentType contentType = TermedContentType.JSON;
             termedRequester.exchange(path, method, params, String.class, body, contentType);
         } catch (HttpServerErrorException ex) {

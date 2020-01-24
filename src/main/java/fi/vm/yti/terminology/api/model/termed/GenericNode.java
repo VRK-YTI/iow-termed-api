@@ -37,7 +37,7 @@ public final class GenericNode implements Node {
 
     private final TypeId type;
 
-    private final Map<String, List<Attribute>> properties;
+    private Map<String, List<Attribute>> properties;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Map<String, List<Identifier>> references = null;
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -131,6 +131,23 @@ public final class GenericNode implements Node {
         this.references = references;
     }
 
+    /**
+     * Simplified creator
+     *
+     * @param type       typeId containing  vocabulary-id
+     * @param properties Attributes as Property-map
+     * @param references References as Identifier-map
+     */
+    public GenericNode(UUID id, TypeId type,
+                       Map<String, List<Attribute>> properties,
+                       Map<String, List<Identifier>> references
+    ) {
+        this.id = id;
+        this.type = type;
+        this.properties = properties;
+        this.references = references;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -189,6 +206,10 @@ public final class GenericNode implements Node {
 
     public Map<String, List<Attribute>> getProperties() {
         return properties;
+    }
+
+    public void setProperties(Map<String, List<Attribute>> properties) {
+        this.properties = properties;
     }
 
     public Map<String, List<Identifier>> getReferences() {

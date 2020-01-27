@@ -533,10 +533,11 @@ public class MigrationService {
         return rv;
     }
 
-    public boolean updateAndDeleteInternalNodes(UUID graphId, GenericDeleteModifyAndSave operation) {
+    public boolean updateAndDeleteInternalNodes(UUID graphId, String nameSpace, GenericDeleteModifyAndSave operation) {
         boolean rv = true;
         Parameters params = new Parameters();
         params.add("changeset", "true");
+        params.add("uriNamespace", nameSpace);
         try {
             log.debug("Update graph:" + graphId + "  value:" + objectMapper.writeValueAsString(operation));
             String path = ("/graphs/" + graphId + "/nodes/");

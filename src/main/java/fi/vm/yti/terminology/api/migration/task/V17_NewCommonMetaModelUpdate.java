@@ -302,6 +302,7 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
 
     private void ModifyLinks(UUID graph,
                              UUID terminologyId) {
+        List<String> nameSpaceList = new ArrayList();;
         // Modified node list
         List<GenericNode> updateNodeList = new ArrayList<>();
         Long start = System.currentTimeMillis();
@@ -310,6 +311,7 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
         nodes.forEach(o -> {
             if (o.getType().getId() == NodeType.TerminologicalVocabulary) {
                 updateNodeList.add(modifyTerminologyLinks(o));
+                nameSpaceList.add(o.getUri());
             } else if (o.getType().getId() == NodeType.Concept) {
                 updateNodeList.add(modifyConceptLinks(o, terminologyId));
             } else if (o.getType().getId() == NodeType.Term) {
@@ -319,11 +321,15 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
             }
         });
 
-        logger.info("UpdateNodeList = " + updateNodeList.size());
+        String nameSpace = null;
+        if(!nameSpaceList.isEmpty()){
+            nameSpace = nameSpaceList.get(0);
+        }
+        logger.info("Namespace "+nameSpace+" UpdateNodeList = " + updateNodeList.size());
         if (updateNodeList != null && !updateNodeList.isEmpty()) {
-            logger.info("Update following nodes count:" + updateNodeList.size());
+            logger.info("Update following nodes count:" + updateNodeList.size()+" for "+nameSpace);
 //            JsonUtils.prettyPrintJson(updateNodeList);
-            migrationService.updateAndDeleteInternalNodes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID,
+            migrationService.updateAndDeleteInternalNodes(DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, nameSpace,
                 new GenericDeleteModifyAndSave(Collections.<Identifier>emptyList(), updateNodeList,
                     Collections.<GenericNode>emptyList()));
         }
@@ -518,6 +524,13 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
                     meta.addReference(ReferenceIndex.definedInScheme(domain, 19));
                 }
 
+            } else if(meta.isOfType(NodeType.TerminologicalVocabulary)){
+                // remove priority
+                if (meta.attributeExist("priority")) {
+                    logger.info("Remove priority attribute from metaID::" + meta.getId() + " Domain:"
+                        + meta.getDomain().getGraphId().toString());
+                    meta.removeAttribute("priority");
+                }
             }
             // Add all other meta types except concept  link
             if (!meta.isOfType(NodeType.ConceptLink)) {

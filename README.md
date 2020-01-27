@@ -15,7 +15,7 @@ Run with `./gradlew assemble` to download all dependencies.
 
 Run with: `./gradlew bootRun`
 
-Terminology API should respond at port `8001`.
+Terminology API should respond at port `9103`.
 
 ### Using profile-specific properties
 
@@ -32,7 +32,7 @@ and run:
 
 ## Stopping
 
-Run in a separate terminal: `curl -X POST localhost:8001/terminology-api/actuator/shutdown`
+Run in a separate terminal: `curl -X POST localhost:9103/terminology-api/actuator/shutdown`
 (Note that this is not probably exposed by default.)
 
 ## Development
@@ -45,7 +45,7 @@ Get started:
 
 To develop the code:
 
-  - Run java class `fi.vm.yti.terminology.api.Application` with parameter `-Dspring.profiles.active=local` to start up Spring Boot web application at [http://localhost:8001](http://localhost:8001).
+  - Run java class `fi.vm.yti.terminology.api.Application` with parameter `-Dspring.profiles.active=local` to start up Spring Boot web application at [http://localhost:9103](http://localhost:9103).
 
 Now you can start hacking the code normally.
 

@@ -54,7 +54,7 @@ public class ExportController {
     @ApiResponse(responseCode = "200", description = "Requested terminology exported in the requested format")
     @GetMapping(path = "/{terminologyID}", produces = { APPLICATION_JSON_VALUE, "application/rdf+xml", "text/turtle" })
     ResponseEntity<String> export(
-        @Parameter(description = "Terminology identifier (UUID/URI)") @PathVariable("terminologyID") Object terminologyId,
+        @Parameter(description = "Terminology identifier (UUID or prefix)") @PathVariable("terminologyID") String terminologyId,
         @Parameter(description = "Export format JSON, RDF, TURTLE.", example = "JSON") @RequestParam String format) {
         logger.debug("ExportController uuid:" + terminologyId + " format:" + format);
 
@@ -63,9 +63,9 @@ public class ExportController {
         // Try to cast incoming as UUID and if fails, assume it is Code ie. name of the
         // vocabulary
         try {
-            id = UUID.fromString((String) terminologyId);
+            id = UUID.fromString(terminologyId);
         } catch (IllegalArgumentException ex) {
-            id = this.resolveCode((String) terminologyId);
+            id = this.resolveCode(terminologyId);
         } catch (Exception e) {
             logger.error("Error fetching vocabulary id", e.getMessage());
             e.printStackTrace();
@@ -92,7 +92,7 @@ public class ExportController {
     @ApiResponse(responseCode = "200", description = "Requested nodes exported in the requested format")
     @GetMapping(path = "/{terminologyID}/type/{nodeType}", produces = { APPLICATION_JSON_VALUE, "application/rdf+xml", "text/turtle" })
     ResponseEntity<String> export(
-        @Parameter(description = "Terminology identifier (UUID/URI)") @PathVariable("terminologyID") Object terminologyId,
+        @Parameter(description = "Terminology identifier (UUID or prefix)") @PathVariable("terminologyID") String terminologyId,
         @Parameter(description = "Type of requested nodes. (Concept, Collection, Term)", example = "Concept") @PathVariable("nodeType") String nodeType,
         @Parameter(description = "Export format JSON, RDF, TURTLE.", example = "JSON") @RequestParam String format) {
         if (logger.isDebugEnabled()) {
@@ -102,10 +102,9 @@ public class ExportController {
         // Try to cast incoming as UUID and if fails, assume it is Code ie. name of the
         // vocabulary
         try {
-            id = UUID.fromString((String) terminologyId);
+            id = UUID.fromString(terminologyId);
         } catch (IllegalArgumentException ex) {
-
-            id = this.resolveCode((String) terminologyId);
+            id = this.resolveCode(terminologyId);
         } catch (Exception e) {
             logger.error("Error fetching vocabulary id", e.getMessage());
             id = null;

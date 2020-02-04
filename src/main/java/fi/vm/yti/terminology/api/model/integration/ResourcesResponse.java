@@ -2,21 +2,20 @@
 package fi.vm.yti.terminology.api.model.integration;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 
 import javax.validation.Valid;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 @JsonInclude(Include.NON_NULL)
-@JsonPropertyOrder({ "uri", "type", "languages", "prefLabel", "description", "status", "created", "modified" })
-public class ContainersResponse implements Serializable {
+@JsonPropertyOrder({ "uri", "type", "container", "prefLabel", "description", "status", "created", "modified" })
+public class ResourcesResponse implements Serializable {
 
     private String uri = null;
+    private String container = null;
     @Valid
     private Map<String, String> prefLabel = null;
     @JsonInclude(Include.NON_EMPTY)
@@ -26,9 +25,13 @@ public class ContainersResponse implements Serializable {
     private String created = null;
     private String modified = null;
     private String type = null;
-    private List<String> languages = null;
 
-    public ContainersResponse() {
+    private final static long serialVersionUID = 306028529823257143L;
+
+    /**
+     * No args constructor for use in serialization
+     */
+    public ResourcesResponse() {
     }
 
     public String getUri() {
@@ -45,6 +48,14 @@ public class ContainersResponse implements Serializable {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getContainer() {
+        return container;
+    }
+
+    public void setContainer(String container) {
+        this.container = container;
     }
 
     public Map<String, String> getPrefLabel() {
@@ -87,19 +98,11 @@ public class ContainersResponse implements Serializable {
         this.modified = modified;
     }
 
-    public List<String> getLanguages() {
-        return languages;
-    }
-
-    public void setLanguages(List<String> languages) {
-        this.languages = languages;
-    }
-
     @Override
     public String toString() {
         String value = "{\"uri\":\"" + this.uri + "\"," +
             "\"type\":\"" + this.type + "\"," +
-            "\"languages\":\"" + this.languages + "\"," +
+            "\"container\":\"" + this.container + "\"," +
             "\"prefLabel\":\"" + this.prefLabel + "\"," +
             "\"description\":\"" + this.description + "\"," +
             "\"status\":\"" + this.status + "\"," +

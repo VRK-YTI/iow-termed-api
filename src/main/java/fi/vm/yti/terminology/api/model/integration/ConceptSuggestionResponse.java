@@ -15,8 +15,8 @@ public final class ConceptSuggestionResponse {
      * "uri":"http://uri.suomi.fi/terminology/kira/"
      * "identifier":"e15c8009-804c-4aba-a836-f5c911ea5ef1" }
      */
-    private Attribute prefLabel = null;
-    private Attribute definition = null;
+    private LocalizedString prefLabel = null;
+    private LocalizedString definition = null;
     private String creator = null;
     private String terminologyUri = null;
     private String uri = null;
@@ -38,15 +38,15 @@ public final class ConceptSuggestionResponse {
 
     public ConceptSuggestionResponse() {
         // Jackson constructor
-        this(new Attribute("", ""), new Attribute("", ""));
+        this(new LocalizedString("", ""), new LocalizedString("", ""));
     }
 
-    public ConceptSuggestionResponse(Attribute prefLabel, Attribute definition) {
+    public ConceptSuggestionResponse(LocalizedString prefLabel, LocalizedString definition) {
         this(prefLabel, definition, "");
     }
 
-    public ConceptSuggestionResponse(Attribute preflabel, Attribute definition, String uri) {
-        this.prefLabel = preflabel;
+    public ConceptSuggestionResponse(LocalizedString prefLabel, LocalizedString definition, String uri) {
+        this.prefLabel = prefLabel;
         this.definition = definition;
         this.uri = uri;
     }
@@ -55,11 +55,11 @@ public final class ConceptSuggestionResponse {
         return new ConceptSuggestionResponse();
     }
 
-    public Attribute getPrefLabel() {
+    public LocalizedString getPrefLabel() {
         return prefLabel;
     }
 
-    public Attribute getDefinition() {
+    public LocalizedString getDefinition() {
         return definition;
     }
 
@@ -95,14 +95,14 @@ public final class ConceptSuggestionResponse {
     /**
      * @param prefLabel the prefLabel to set
      */
-    public void setPrefLabel(Attribute prefLabel) {
+    public void setPrefLabel(LocalizedString prefLabel) {
         this.prefLabel = prefLabel;
     }
 
     /**
      * @param definition the definition to set
      */
-    public void setDefinition(Attribute definition) {
+    public void setDefinition(LocalizedString definition) {
         this.definition = definition;
     }
 
@@ -119,5 +119,4 @@ public final class ConceptSuggestionResponse {
     public void setCreated(Date created) {
         this.created = created;
     }
-
 }

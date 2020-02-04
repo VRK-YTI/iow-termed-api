@@ -32,6 +32,8 @@ import fi.vm.yti.terminology.api.model.integration.ConceptSuggestionResponse;
 import fi.vm.yti.terminology.api.model.integration.ContainersResponse;
 import fi.vm.yti.terminology.api.model.integration.IntegrationContainerRequest;
 import fi.vm.yti.terminology.api.model.integration.IntegrationResourceRequest;
+import fi.vm.yti.terminology.api.model.integration.PrivateConceptSuggestionRequest;
+import fi.vm.yti.terminology.api.model.integration.ResourcesResponse;
 import fi.vm.yti.terminology.api.model.integration.ResponseWrapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,8 +52,7 @@ public class IntegrationController {
 
     }
 
-    // TODO: At the moment the resource response actually shares the type (ContainersResponse) with the containers response. Change this.
-    public final static class ResourceResponseWrapper extends ResponseWrapper<ContainersResponse> {
+    public final static class ResourceResponseWrapper extends ResponseWrapper<ResourcesResponse> {
 
     }
 
@@ -80,8 +81,7 @@ public class IntegrationController {
             + (req != null ? req.getRemoteHost() : "N/A"));
         YtiUser user = userProvider.getUser();
         if (!user.isAnonymous()) {
-            incomingConcept.setCreator(user.getId().toString());
-            return integrationService.handleConceptSuggestion(incomingConcept);
+            return integrationService.handleConceptSuggestion(new PrivateConceptSuggestionRequest(incomingConcept, user.getId().toString()));
         } else {
             throw new AuthorizationException("Making concept suggestions require authorized user");
         }

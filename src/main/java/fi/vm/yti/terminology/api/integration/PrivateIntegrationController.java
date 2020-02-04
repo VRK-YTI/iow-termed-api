@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import fi.vm.yti.terminology.api.model.integration.ConceptSuggestionRequest;
 import fi.vm.yti.terminology.api.model.integration.ConceptSuggestionResponse;
+import fi.vm.yti.terminology.api.model.integration.PrivateConceptSuggestionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,7 +40,7 @@ public class PrivateIntegrationController {
     @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Concept suggestion as JSON")
     @PostMapping(path = "/terminology/conceptSuggestion", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
     ResponseEntity<String> conceptSuggestion(HttpServletRequest req,
-                                             @RequestBody ConceptSuggestionRequest incomingConcept) {
+                                             @RequestBody PrivateConceptSuggestionRequest incomingConcept) {
         logger.info("POST /private/v1/integration/terminology/conceptSuggestion from " + (req != null ? req.getRemoteHost() : "N/A"));
         return integrationService.handleConceptSuggestion(incomingConcept);
     }

@@ -354,8 +354,9 @@ public class NtrfMapper {
         Long endTime = new Date().getTime();
         logger.info("Operation  took " + (endTime - startTime) / 1000 + "s");
         logger.info("NTRF-imported " + records.size() + " concepts.");
-
         response.clearStatusMessages();
+        // Add all status lines as individual members before
+      
         statusList.forEach(v -> {
             StatusMessage m = (StatusMessage) v;
             response.addStatusMessage(new ImportStatusMessage(m.getLevel(), m.getRecord(), m.getMessage().toString()));
@@ -802,6 +803,7 @@ public class NtrfMapper {
             editorialNote = r.getStat();
             // Drop ulottuvuus and continue
             if (r.getStat().equalsIgnoreCase("Ulottuvuus")) {
+                logger.warn("Dropping 'ulottuvuus' type node");
                 // statusList.put(currentRecord, new StatusMessage(currentRecord, "Dropping
                 // 'ulottuvuus' type record"));
                 statusList.add(new StatusMessage(currentRecord, "Dropping 'ulottuvuus' type record"));
@@ -1971,7 +1973,7 @@ public class NtrfMapper {
             noteString = noteString.trim();
             // Replace multiple spaces with one
             noteString = noteString.replaceAll("( )+", " ");
-            if(logger.isDebugEnabled() {
+            if(logger.isDebugEnabled()) {
                 logger.debug("handleNote() Adding note:" + noteString);
             }
             Attribute att = new Attribute(lang, noteString);

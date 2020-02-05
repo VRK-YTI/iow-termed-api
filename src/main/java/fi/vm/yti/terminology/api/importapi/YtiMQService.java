@@ -360,8 +360,9 @@ public class YtiMQService {
             // Add application specific headers
             accessor.copyHeaders(headers.toMap());
         }
-        // Authenticated user
-        accessor.setHeader("userId",  userProvider.getUser().getId().toString());
+        // Authenticated user, force defautl if not given
+        String userId = userProvider.getUser().getId() != null ? userProvider.getUser().getId().toString(): "7095c4eb-d2ce-4a32-9245-def5c0c8fd8d";
+        accessor.setHeader("userId",  userId);
         // Token which is used when querying status
         accessor.setHeader("jobtoken", jobtoken.toString());
         // Target identification data

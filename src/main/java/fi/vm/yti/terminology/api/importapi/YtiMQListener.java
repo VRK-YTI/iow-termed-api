@@ -43,7 +43,6 @@ public class YtiMQListener {
                                   @Header String jobtoken,
                                   @Header String userId,
                                   @Header String uri) throws JMSException {
-        System.out.println("Received and transferred to processing. Message headers=" + message.getHeaders());
         MessageHeaderAccessor accessor = new MessageHeaderAccessor();
         accessor.copyHeaders(message.getHeaders());
         accessor.setLeaveMutable(true);
@@ -55,16 +54,4 @@ public class YtiMQListener {
                 .build();
         return message;
     }
-/*
-    @JmsListener(destination =  "${mq.active.subsystem}Status")
-//    @SendTo("${mq.active.subsystem}StatusTest")
-    public void receiveStatusMessage(final Message message,
-                                  Session session,
-                                  @Header String jobtoken,
-                                  @Header String userId,
-                                  @Header String uri) throws JMSException {
-        System.out.println("Consume status Message headers=" + message.getHeaders());
-        System.out.println(message.getPayload().toString());
-    }
-*/
 }

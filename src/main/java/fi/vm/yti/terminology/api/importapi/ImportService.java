@@ -6,6 +6,7 @@ import fi.vm.yti.terminology.api.frontend.FrontendGroupManagementService;
 import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
 import fi.vm.yti.terminology.api.importapi.ImportStatusResponse.Status;
 import fi.vm.yti.terminology.api.model.ntrf.VOCABULARY;
+import fi.vm.yti.terminology.api.model.termed.GenericNode;
 import fi.vm.yti.terminology.api.model.termed.Graph;
 import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import fi.vm.yti.terminology.api.security.AuthorizationManager;
@@ -144,9 +145,9 @@ public class ImportService {
         return new ResponseEntity<>("{\"status\":\"Stopped\"}", HttpStatus.OK);
     }
 
-    ResponseEntity<String> handleNtrfDocumentAsync(String format, UUID vocabularyId, MultipartFile file) {
+    ResponseEntity<String> handleNtrfDocumentAsync(String format, UUID terminologyId, MultipartFile file) {
         String rv;
-        System.out.println("Incoming vocabularity= "+vocabularyId+" - file:"+file.getName()+" size:"+file.getSize()+ " type="+file.getContentType());
+        System.out.println("Incoming vocabularity= "+terminologyId+" - file:"+file.getName()+" size:"+file.getSize()+ " type="+file.getContentType());
         // Fail if given format string is not ntrf
         if (!format.equals("ntrf")) {
             logger.error("Unsupported format:<" + format + "> (Currently supported formats: ntrf)");
@@ -154,20 +155,20 @@ public class ImportService {
             return new ResponseEntity<>("Unsupported format:<" + format + ">    (Currently supported formats: ntrf)\n", HttpStatus.NOT_ACCEPTABLE);
         }
 
-        Graph vocabulary = null;
+        GenericNode terminology = null;
 
         // Get vocabularity
         try {
-            vocabulary = termedService.getGraph(vocabularyId);
+            terminology = termedService.getNode(terminologyId);
             // Import running for given vocabulary, drop it
-            if(ytiMQService.checkIfImportIsRunning(vocabulary.getUri())){
-                logger.error("Import running for Vocabulary:<" + vocabularyId + ">");
-                return new ResponseEntity<>("Import running for Vocabulary:<" + vocabularyId+">", HttpStatus.CONFLICT);
+            if(ytiMQService.checkIfImportIsRunning(terminology.getUri())){
+                logger.error("Import running for Vocabulary:<" + terminologyId + ">");
+                return new ResponseEntity<>("Import running for Vocabulary:<" + terminologyId+">", HttpStatus.CONFLICT);
             }
         } catch ( NullPointerException nex){
             // Vocabularity not found
-            logger.error("Vocabulary:<" + vocabularyId + "> not found");
-            return new ResponseEntity<>("Vocabulary:<" + vocabularyId + "> not found\n", HttpStatus.NOT_FOUND);
+            logger.error("Vocabulary:<" + terminologyId + "> not found");
+            return new ResponseEntity<>("Vocabulary:<" + terminologyId + "> not found\n", HttpStatus.NOT_FOUND);
         }
 
         UUID operationId=UUID.randomUUID();
@@ -178,7 +179,11 @@ public class ImportService {
         rv = new ImportResponse(operationId.toString()).toString();
         // Handle incoming xml
         try {
-            ytiMQService.setStatus(YtiMQService.STATUS_PREPROCESSING, operationId.toString(), userProvider.getUser().getId().toString(), vocabulary.getUri(),"Validating");
+            System.out.println("userProvider"+userProvider.getUser());            
+            // Just force to use test user
+            String userId =  userProvider.getUser().getId()== null ? "7095c4eb-d2ce-4a32-9245-def5c0c8fd8d" : userProvider.getUser().getId().toString();
+            System.out.println("userProvider"+userProvider.getUser()+ "id ="+userId);            
+            ytiMQService.setStatus(YtiMQService.STATUS_PREPROCESSING, operationId.toString(), userId , terminology.getUri(),"Validating");
             JAXBContext jc = JAXBContext.newInstance(VOCABULARY.class);
             // Disable DOCTYPE-directive from incoming file.
             XMLInputFactory xif = XMLInputFactory.newFactory();
@@ -198,16 +203,16 @@ public class ImportService {
             response.setStatus(Status.PREPROCESSING);
             response.addStatusMessage(new ImportStatusMessage("Vocabulary",l.size()+" items validated"));
             response.setProcessingTotal(l.size());
-            ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, operationId.toString(), userProvider.getUser().getId().toString(), vocabulary.getUri(),response.toString());
+            ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, operationId.toString(), userId, terminology.getUri(),response.toString());
             StringWriter sw = new StringWriter();
             marshaller.marshal(voc, sw);
             // Add application specific headers
             MessageHeaderAccessor accessor = new MessageHeaderAccessor();
-            accessor.setHeader("vocabularyId",vocabularyId.toString());
+            accessor.setHeader("vocabularyId",terminologyId.toString());
             accessor.setHeader("format","NTRF");
-            int stat = ytiMQService.handleImportAsync(operationId, accessor, subSystem, vocabulary.getUri(), sw.toString());
+            int stat = ytiMQService.handleImportAsync(operationId, accessor, subSystem, terminology.getUri(), sw.toString());
             if(stat != HttpStatus.OK.value()){
-                System.out.println("Import failed code:"+stat);
+                logger.error("Import failed code:"+stat);
             }
         } catch (IOException ioe){
             System.out.println("Incoming transform error=" + ioe);

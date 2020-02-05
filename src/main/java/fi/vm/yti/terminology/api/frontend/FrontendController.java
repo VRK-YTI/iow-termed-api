@@ -199,7 +199,8 @@ public class FrontendController {
     @Nullable GenericNodeInlined getConcept(@Parameter(description = "Terminology ID") @RequestParam UUID graphId,
                                             @Parameter(description = "Concept ID") @RequestParam UUID conceptId) {
         logger.info("GET /concept requested with params: graphId: " + graphId.toString() + ", conceptId: " + conceptId.toString());
-        return termedService.getConcept(graphId, conceptId);
+        return termedService.getConcept( conceptId);
+//        return termedService.getConcept(graphId, conceptId);
     }
 
     @Operation(summary = "Get a concept collection as JSON")
@@ -208,7 +209,8 @@ public class FrontendController {
     GenericNodeInlined getCollection(@Parameter(description = "Terminology ID") @RequestParam UUID graphId,
                                      @Parameter(description = "Concept collection ID") @RequestParam UUID collectionId) {
         logger.info("GET /collection requested with params: graphId: " + graphId.toString() + ", collectionId: " + collectionId.toString());
-        return termedService.getCollection(graphId, collectionId);
+        return termedService.getCollection(collectionId);
+//        return termedService.getCollection(graphId, collectionId);
     }
 
     @Operation(summary = "Get all concept collections for a terminology")

@@ -14,6 +14,9 @@ import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.jms.core.JmsMessagingTemplate;
@@ -28,6 +31,8 @@ import fi.vm.yti.terminology.api.model.ntrf.VOCABULARY;
 
 @Component
 public class ImportJmsListener {
+    private static final Logger logger = LoggerFactory.getLogger(ImportJmsListener.class);
+
 	@Autowired
 	NtrfMapper ntrfMapper;
     // JMS-client
@@ -60,7 +65,7 @@ public class ImportJmsListener {
         System.out.println("UserId="+userId);
         String payload ="{}";
         if(jmsMessagingTemplate == null){
-            System.out.println("MessagingTemplate not initialized!!!!!");
+            logger.error("MessagingTemplate not initialized!!!!!");
         }
         // Process ntrf item
         try {
@@ -79,14 +84,14 @@ public class ImportJmsListener {
             VOCABULARY voc = (VOCABULARY) unmarshaller.unmarshal(xsr);
             payload=ntrfMapper.mapNtrfDocument( jobtoken, UUID.fromString(vocabularyId), voc,UUID.fromString(userId));
         } catch (XMLStreamException se) {
-            System.out.println("Incoming transform error=" + se);
+            logger.error("Incoming transform error=" + se);
         } catch(JAXBException je){
-            System.out.println("Incoming transform error=" + je);
+            logger.error("Incoming transform error=" + je);
         }
 
         // Set import as handled. IE. consume processed message
 //        ytiMQService.setReady(jobtoken);
-        System.out.println("Import handled:" + payload);
+        logger.info("Import handled:" + payload);
 
         MessageHeaderAccessor accessor = new MessageHeaderAccessor();
         accessor.copyHeaders(message.getHeaders());

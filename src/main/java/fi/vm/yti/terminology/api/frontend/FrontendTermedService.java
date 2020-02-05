@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static fi.vm.yti.security.AuthorizationException.check;
+import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
 import static fi.vm.yti.terminology.api.model.termed.VocabularyNodeType.TerminologicalVocabulary;
 import static fi.vm.yti.terminology.api.model.termed.VocabularyNodeType.Vocabulary;
 import static fi.vm.yti.terminology.api.util.CollectionUtils.mapToList;
@@ -77,6 +78,13 @@ public class FrontendTermedService {
         }
 
         return false;
+    }
+
+    public @NotNull GenericNode getNode(UUID terminologyId) {
+        
+        String path = "/graphs/" + TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID + "/types/"+NodeType.TerminologicalVocabulary+"/nodes/"+ terminologyId;
+        logger.info("getNode path="+path);
+        return requireNonNull(termedRequester.exchange(path, GET, Parameters.empty(), GenericNode.class));
     }
 
     public @NotNull GenericNodeInlined getVocabulary(UUID graphId) {
@@ -228,6 +236,38 @@ public class FrontendTermedService {
     }
 
     @NotNull
+    GenericNodeInlined getConcept(UUID conceptId) {
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("select", "type");
+        params.add("select", "code");
+        params.add("select", "uri");
+        params.add("select", "createdBy");
+        params.add("select", "createdDate");
+        params.add("select", "lastModifiedBy");
+        params.add("select", "lastModifiedDate");
+        params.add("select", "properties.*");
+        params.add("select", "references.*");
+        params.add("select", "references.prefLabelXl:2");
+        params.add("select", "referrers.*");
+        params.add("select", "referrers.prefLabelXl:2");
+        params.add("where", "graph.id:" + TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+        params.add("where", "id:" + conceptId);
+        params.add("max", "-1");
+
+        List<GenericNodeInlined> result = requireNonNull(termedRequester.exchange("/node-trees", GET, params,
+                new ParameterizedTypeReference<List<GenericNodeInlined>>() {
+                }));
+
+        if (result.size() == 0) {
+            throw new NodeNotFoundException(TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, conceptId);
+        } else {
+            return userNameToDisplayName(result.get(0), new UserIdToDisplayNameMapper());
+        }
+    }
+
+    @NotNull
     GenericNodeInlined getCollection(UUID graphId, UUID collectionId) {
 
         Parameters params = new Parameters();
@@ -258,6 +298,36 @@ public class FrontendTermedService {
     }
 
     @NotNull
+    GenericNodeInlined getCollection(UUID collectionId) {
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("select", "type");
+        params.add("select", "code");
+        params.add("select", "uri");
+        params.add("select", "createdBy");
+        params.add("select", "createdDate");
+        params.add("select", "lastModifiedBy");
+        params.add("select", "lastModifiedDate");
+        params.add("select", "properties.*");
+        params.add("select", "references.*");
+        params.add("select", "references.prefLabelXl:2");
+        params.add("where", "graph.id:" + TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+        params.add("where", "id:" + collectionId);
+        params.add("max", "-1");
+
+        List<GenericNodeInlined> result = requireNonNull(termedRequester.exchange("/node-trees", GET, params,
+                new ParameterizedTypeReference<List<GenericNodeInlined>>() {
+                }));
+
+        if (result.size() == 0) {
+            throw new NodeNotFoundException(TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID, collectionId);
+        } else {
+            return userNameToDisplayName(result.get(0), new UserIdToDisplayNameMapper());
+        }
+    }
+
+    @NotNull
     JsonNode getCollectionList(UUID graphId) {
 
         Parameters params = new Parameters();
@@ -275,6 +345,24 @@ public class FrontendTermedService {
         return requireNonNull(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
     }
 
+    @NotNull
+    JsonNode getCollectionList() {
+
+        Parameters params = new Parameters();
+        params.add("select", "id");
+        params.add("select", "type");
+        params.add("select", "code");
+        params.add("select", "uri");
+        params.add("select", "properties.prefLabel");
+        params.add("select", "properties.status");
+        params.add("select", "lastModifiedDate");
+        params.add("where", "graph.id:" + TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
+        params.add("where", "type.id:" + "Collection");
+        params.add("max", "-1");
+
+        return requireNonNull(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
+    }
+
     public @NotNull List<GenericNode> getNodes(UUID graphId) {
         Parameters params = new Parameters();
         params.add("max", "-1");
@@ -286,6 +374,17 @@ public class FrontendTermedService {
                 }));
     }
 
+    public @NotNull List<GenericNode> getTerminologyNodes(UUID terminologyId) {
+        Parameters params = new Parameters();
+        params.add("select", "*");
+        params.add("where","references.definedInScheme.id:"+terminologyId);
+        params.add("max", "-1");
+
+        return requireNonNull(
+                termedRequester.exchange("/node-trees", GET, params, new ParameterizedTypeReference<List<GenericNode>>() {
+                }));
+    }
+
     public @NotNull GenericNode getConceptNode(UUID graphId, UUID conceptId) {
         Parameters params = new Parameters();
         params.add("max", "-1");
@@ -293,6 +392,15 @@ public class FrontendTermedService {
 
         if (path == null)
             return null;
+        return requireNonNull(
+                termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<GenericNode>() {
+                }));
+    }
+
+    public @NotNull GenericNode getConceptNode(UUID conceptId) {
+        Parameters params = new Parameters();
+        params.add("max", "-1");
+        String path = "/graphs/" + TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID + "/types/Concept/nodes/" + conceptId ;
         return requireNonNull(
                 termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<GenericNode>() {
                 }));
@@ -350,6 +458,10 @@ public class FrontendTermedService {
         return requireNonNull(
                 termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<List<MetaNode>>() {
                 }));
+    }
+
+    public @NotNull List<MetaNode> getMetaTypes() {
+        return getTypes(TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
     }
 
     public @NotNull List<Graph> getGraphs() {

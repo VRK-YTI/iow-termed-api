@@ -182,7 +182,7 @@ public class ExportService {
 
     private ResponseEntity<String> buildResponse(String body, TermedContentType contentType, HttpStatus status) {
         return ResponseEntity
-            .ok()
+            .status(status)
             .contentType(MediaType.valueOf(contentType.getContentType()))
             .body(body);
     }

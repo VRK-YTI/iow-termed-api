@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jms.annotation.EnableJms;
 import org.springframework.stereotype.Service;
@@ -137,50 +138,52 @@ public class ExportService {
     }
 
     ResponseEntity<String> getJSON(UUID vocabularyId) {
-
-        JsonNode response = getFullVocabulary(vocabularyId);
-        // Construct return message
-        ResponseEntity<String> re = new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
-        if (response == null || response.isNull() || (response.isArray() && response.size() == 0)) {
-            re = new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.NOT_FOUND);
-        }
-        if (response == null || response.isNull()) {
-            re = new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.NOT_FOUND);
-        }
-        return re;
+        return handleJSON(getFullVocabulary(vocabularyId));
     }
 
     ResponseEntity<String> getJSON(UUID vocabularyId, String nodeTypes) {
-
-        JsonNode response = getVocabulary(vocabularyId, nodeTypes);
-        // Construct return message
-        ResponseEntity<String> re = new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.OK);
-        if (response == null || response.isNull() || (response.isArray() && response.size() == 0)) {
-            re = new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.NOT_FOUND);
-        }
-        if (response == null || response.isNull()) {
-            re = new ResponseEntity<>(JsonUtils.prettyPrintJsonAsString(response), HttpStatus.NOT_FOUND);
-        }
-        return re;
+        return handleJSON(getVocabulary(vocabularyId, nodeTypes));
     }
 
     ResponseEntity<String> getRDF(UUID vocabularyId) {
         String response = getFullVocabularyRDF(vocabularyId);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return buildOkResponse(response, TermedContentType.RDF_XML);
     }
 
     ResponseEntity<String> getRDF(UUID vocabularyId, String nodeType) {
-        String response = getVocabularyRDF(vocabularyId,nodeType);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        String response = getVocabularyRDF(vocabularyId, nodeType);
+        return buildOkResponse(response, TermedContentType.RDF_XML);
     }
 
     ResponseEntity<String> getTXT(UUID vocabularyId) {
         String response = getFullVocabularyTXT(vocabularyId);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return buildOkResponse(response, TermedContentType.RDF_TURTLE);
     }
 
     ResponseEntity<String> getTXT(UUID vocabularyId, String nodeType) {
-        String response = getFullVocabularyTXT(vocabularyId);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        String response = getVocabularyTXT(vocabularyId, nodeType);
+        return buildOkResponse(response, TermedContentType.RDF_TURTLE);
+    }
+
+    private ResponseEntity<String> handleJSON(JsonNode response) {
+        if (response == null || response.isNull()) {
+            return buildResponse("null", TermedContentType.JSON, HttpStatus.NOT_FOUND);
+        }
+        String body = JsonUtils.prettyPrintJsonAsString(response);
+        if (response.isArray() && response.size() == 0) {
+            return buildResponse(body, TermedContentType.JSON, HttpStatus.NOT_FOUND);
+        }
+        return buildOkResponse(body, TermedContentType.JSON);
+    }
+
+    private ResponseEntity<String> buildOkResponse(String body, TermedContentType contentType) {
+        return buildResponse(body, contentType, HttpStatus.OK);
+    }
+
+    private ResponseEntity<String> buildResponse(String body, TermedContentType contentType, HttpStatus status) {
+        return ResponseEntity
+            .ok()
+            .contentType(MediaType.valueOf(contentType.getContentType()))
+            .body(body);
     }
 }

@@ -134,8 +134,18 @@ public class ResolveService {
         params.add("select", "properties.*");
         params.add("select", "references.*");
         params.add("where", formatWhereClause(graphId, types, resourceId));
+        params.add("pretty", "true");
 
         return requireNonNull(termedRequester.exchange("/node-trees", GET, params, String.class, contentType));
+    }
+
+    String getTerminology(@NotNull UUID id, TermedContentType contentType) {
+        Parameters params = new Parameters();
+        params.add("select", "*");
+        //params.add("select", "references.prefLabelXl:1");
+        params.add("max", "-1");
+        params.add("pretty", "true");
+        return requireNonNull(termedRequester.exchange("/graphs/" + id + "/node-trees", GET, params, String.class, contentType));
     }
 
     private static @NotNull String formatWhereClause(@NotNull UUID graphId,

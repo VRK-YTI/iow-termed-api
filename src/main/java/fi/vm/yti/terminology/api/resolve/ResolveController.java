@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
@@ -19,7 +20,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import fi.vm.yti.terminology.api.TermedContentType;
@@ -29,8 +29,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @Controller
 @RequestMapping("/api/v1")
@@ -125,54 +125,62 @@ public class ResolveController {
 
     @Operation(summary = "Get a terminology", description = "Fetch a terminology identified by the UUID in requested format")
     @ApiResponse(responseCode = "200", description = "If the terminology was found then it is returned in requested format. If the given ID did not match a terminology then behaviour is undefined.")
-    @GetMapping("/vocabulary")
-    @ResponseBody
-    public String getVocabulary(@Parameter(description = "The ID of the requested terminology") @RequestParam UUID graphId,
-                                @Parameter(
-                                    description = "Requested format. This parameter has priority over the Accept header. If neither format parameter nor the accept header is valid then JSON is returned.",
-                                    schema = @Schema(allowableValues = { "application/json", "application/ld+json", "application/rdf+xml", "text/turtle" })
-                                )
-                                @RequestParam(required = false) String format,
-                                @Parameter(description = "Requested format. The request parameter \"format\" has priority over the Accept header.")
-                                @RequestHeader("Accept") String acceptHeader) {
+    @GetMapping(path = "/vocabulary", produces = { APPLICATION_JSON_VALUE, "application/ld+json", "application/rdf+xml", "text/turtle" })
+    public ResponseEntity<String> getVocabulary(@Parameter(description = "The ID of the requested terminology") @RequestParam UUID graphId,
+                                                @Parameter(
+                                                    description = "Requested format. This parameter has priority over the Accept header. If neither format parameter nor the accept header is valid then JSON is returned.",
+                                                    schema = @Schema(allowableValues = { "application/json", "application/ld+json", "application/rdf+xml", "text/turtle" })
+                                                )
+                                                @RequestParam(required = false) String format,
+                                                @Parameter(description = "Requested format. The request parameter \"format\" has priority over the Accept header.")
+                                                @RequestHeader("Accept") String acceptHeader) {
+
         logger.info("Fetching terminology [id=\"" + graphId + "\", format=\"" + format + "\", accept=\"" + acceptHeader + "\"]");
-        return urlResolverService.getResource(graphId, asList(NodeType.Vocabulary, NodeType.TerminologicalVocabulary),
-            TermedContentType.fromString(format, acceptHeader), null);
+        //return urlResolverService.getResource(graphId, asList(NodeType.Vocabulary, NodeType.TerminologicalVocabulary),
+        //    TermedContentType.fromString(format, acceptHeader), null);
+        TermedContentType tct = TermedContentType.fromString(format, acceptHeader);
+        return buildResponse(urlResolverService.getTerminology(graphId, tct), tct);
     }
 
     @Operation(summary = "Get a concept", description = "Fetch a concept identified by terminology and concept IDs in requested format")
     @ApiResponse(responseCode = "200", description = "If the concept was found then it is returned in requested format. If the given IDs did not match a concept then behaviour is undefined.")
-    @GetMapping("/concept")
-    @ResponseBody
-    public String getConcept(@Parameter(description = "The ID of the terminology containing the concept") @RequestParam UUID graphId,
-                             @Parameter(description = "The ID of the requested concept") @RequestParam UUID id,
-                             @Parameter(
-                                 description = "Requested format. This parameter has priority over the Accept header. If neither format parameter nor the accept header is valid then JSON is returned.",
-                                 schema = @Schema(allowableValues = { "application/json", "application/ld+json", "application/rdf+xml", "text/turtle" })
-                             )
-                             @RequestParam(required = false) String format,
-                             @Parameter(description = "Requested format. The request parameter \"format\" has priority over the Accept header.")
-                             @RequestHeader("Accept") String acceptHeader) {
+    @GetMapping(path = "/concept", produces = { APPLICATION_JSON_VALUE, "application/ld+json", "application/rdf+xml", "text/turtle" })
+    public ResponseEntity<String> getConcept(@Parameter(description = "The ID of the terminology containing the concept") @RequestParam UUID graphId,
+                                             @Parameter(description = "The ID of the requested concept") @RequestParam UUID id,
+                                             @Parameter(
+                                                 description = "Requested format. This parameter has priority over the Accept header. If neither format parameter nor the accept header is valid then JSON is returned.",
+                                                 schema = @Schema(allowableValues = { "application/json", "application/ld+json", "application/rdf+xml", "text/turtle" })
+                                             )
+                                             @RequestParam(required = false) String format,
+                                             @Parameter(description = "Requested format. The request parameter \"format\" has priority over the Accept header.")
+                                             @RequestHeader("Accept") String acceptHeader) {
         logger.info("Fetching concept [termonology=\"" + graphId + "\", id=\"" + id + "\", format=\"" + format + "\", accept=\"" + acceptHeader + "\"]");
-        return urlResolverService.getResource(graphId, singletonList(NodeType.Concept),
-            TermedContentType.fromString(format, acceptHeader), id);
+        TermedContentType tct = TermedContentType.fromString(format, acceptHeader);
+        return buildResponse(urlResolverService.getResource(graphId, singletonList(NodeType.Concept), tct, id), tct);
     }
 
     @Operation(summary = "Get a concept collection", description = "Fetch a concept collection identified by terminology and collection IDs in requested format")
     @ApiResponse(responseCode = "200", description = "If the collection was found then it is returned in requested format. If the given IDs did not match a collection then behaviour is undefined.")
-    @GetMapping("/collection")
-    @ResponseBody
-    public String getCollection(@Parameter(description = "The ID of the terminology containing the concept") @RequestParam UUID graphId,
-                                @Parameter(description = "The ID of the requested collection") @RequestParam UUID id,
-                                @Parameter(
-                                    description = "Requested format. This parameter has priority over the Accept header. If neither format parameter nor the accept header is valid then JSON is returned.",
-                                    schema = @Schema(allowableValues = { "application/json", "application/ld+json", "application/rdf+xml", "text/turtle" })
-                                )
-                                @RequestParam(required = false) String format,
-                                @Parameter(description = "Requested format. The request parameter \"format\" has priority over the Accept header.")
-                                @RequestHeader("Accept") String acceptHeader) {
+    @GetMapping(path = "/collection", produces = { APPLICATION_JSON_VALUE, "application/ld+json", "application/rdf+xml", "text/turtle" })
+    public ResponseEntity<String> getCollection(@Parameter(description = "The ID of the terminology containing the concept") @RequestParam UUID graphId,
+                                                @Parameter(description = "The ID of the requested collection") @RequestParam UUID id,
+                                                @Parameter(
+                                                    description = "Requested format. This parameter has priority over the Accept header. If neither format parameter nor the accept header is valid then JSON is returned.",
+                                                    schema = @Schema(allowableValues = { "application/json", "application/ld+json", "application/rdf+xml", "text/turtle" })
+                                                )
+                                                @RequestParam(required = false) String format,
+                                                @Parameter(description = "Requested format. The request parameter \"format\" has priority over the Accept header.")
+                                                @RequestHeader("Accept") String acceptHeader) {
         logger.info("Fetching collection [termonology=\"" + graphId + "\", id=\"" + id + "\", format=\"" + format + "\", accept=\"" + acceptHeader + "\"]");
-        return urlResolverService.getResource(graphId, singletonList(NodeType.Collection),
-            TermedContentType.fromString(format, acceptHeader), id);
+        TermedContentType tct = TermedContentType.fromString(format, acceptHeader);
+        return buildResponse(urlResolverService.getResource(graphId, singletonList(NodeType.Collection), tct, id), tct);
+    }
+
+    private ResponseEntity<String> buildResponse(String body,
+                                                 TermedContentType type) {
+        return ResponseEntity
+            .ok()
+            .contentType(MediaType.valueOf(type.getContentType()))
+            .body(body);
     }
 }

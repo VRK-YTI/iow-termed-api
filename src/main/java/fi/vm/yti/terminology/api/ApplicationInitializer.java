@@ -19,6 +19,7 @@ import javax.annotation.PreDestroy;
 @Component
 public class ApplicationInitializer {
 
+    private final int RETRIES = 10;
     private final IndexElasticSearchService elasticSearchService;
     private final IndexTermedService termedApiService;
     private final SynchronizationService synchronizationService;
@@ -43,16 +44,13 @@ public class ApplicationInitializer {
     @PostConstruct
     public void onInit() throws InterruptedException {
 
-        for (int retryCount = 0; retryCount < 10; retryCount++) {
+        for (int retryCount = 1; retryCount <= RETRIES; retryCount++) {
             try {
-
-                if (retryCount > 0) {
-                    log.info("Retrying");
-                }
+                log.info("Initializing (attempt " + retryCount + "/" + RETRIES + ")");
 
                 synchronizationService.synchronize();
 
-                this.elasticSearchService.initIndex();
+                elasticSearchService.initIndexes();
 
                 if (!NOTIFY_HOOK_URL.isEmpty()) {
                     registerNotificationUrl(NOTIFY_HOOK_URL);

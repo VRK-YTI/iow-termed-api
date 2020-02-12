@@ -12,25 +12,25 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import fi.vm.yti.terminology.api.util.JsonUtils;
 
-public final class Vocabulary {
+public class SimpleTerminology {
 
-    private final UUID graphId;
+    private final UUID id;
     private final String uri;
     private final Map<String, List<String>> label;
     private final String status;
 
-    private Vocabulary(@NotNull UUID graphId,
-                       @NotNull String uri,
-                       @NotNull Map<String, List<String>> label,
-                       @NotNull String status) {
-        this.graphId = graphId;
+    protected SimpleTerminology(@NotNull UUID id,
+                                @NotNull String uri,
+                                @NotNull Map<String, List<String>> label,
+                                @NotNull String status) {
+        this.id = id;
         this.uri = uri;
         this.label = label;
         this.status = status;
     }
 
-    @NotNull UUID getGraphId() {
-        return graphId;
+    @NotNull UUID getId() {
+        return id;
     }
 
     @NotNull String getUri() {
@@ -41,7 +41,7 @@ public final class Vocabulary {
         return status;
     }
 
-    static @NotNull Vocabulary createFromExtJson(@NotNull JsonNode json) {
+    static @NotNull SimpleTerminology createFromExtJson(@NotNull JsonNode json) {
 
         JsonNode typeObj = json.get("type");
         JsonNode properties = json.get("properties");
@@ -49,18 +49,18 @@ public final class Vocabulary {
         String uri = json.get("uri").textValue();
         Map<String, List<String>> label = JsonUtils.localizableFromTermedProperties(properties, "prefLabel");
         String status = JsonUtils.getSinglePropertyValue(properties, "status");
-        return new Vocabulary(graphId, uri, label, status);
+        return new SimpleTerminology(graphId, uri, label, status);
     }
 
-    static @NotNull Vocabulary createFromIndex(ObjectMapper mapper,
-                                               @NotNull JsonNode json) {
+    static @NotNull SimpleTerminology createFromIndex(ObjectMapper mapper,
+                                                      @NotNull JsonNode json) {
 
         UUID graphId = UUID.fromString(json.get("id").textValue());
         String uri = json.get("uri").textValue();
         Map<String, List<String>> label = JsonUtils.jsonToLocalizable(mapper, json.get("label"));
         String status = json.get("status").textValue();
 
-        return new Vocabulary(graphId, uri, label, status);
+        return new SimpleTerminology(graphId, uri, label, status);
     }
 
     @NotNull ObjectNode toElasticSearchObject(ObjectMapper objectMapper) {
@@ -68,7 +68,7 @@ public final class Vocabulary {
         ObjectNode output = objectMapper.createObjectNode();
 
         output.set("label", JsonUtils.localizableToJson(objectMapper, label));
-        output.put("id", graphId.toString());
+        output.put("id", id.toString());
         output.put("uri", uri);
         output.put("status", status);
 

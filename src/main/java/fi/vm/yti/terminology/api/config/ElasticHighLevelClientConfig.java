@@ -33,7 +33,6 @@ public class ElasticHighLevelClientConfig {
     }
 
     @Bean
-    @SuppressWarnings("resource")
     protected RestHighLevelClient elasticSearchRestHighLevelClient() {
         final RestClientBuilder builder = RestClient.builder(
             new HttpHost(elasticsearchHost, elasticsearchPort, "http"))

@@ -7,15 +7,14 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -27,6 +26,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
@@ -37,6 +37,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -61,13 +62,15 @@ public class IndexElasticSearchService {
     private final RestClient esRestClient;
     private final RestHighLevelClient esHiLvClient;
 
-    private final String createIndexFilename;
-    private final String createMappingsFilename;
-    private final String indexName;
-    private List<String> indexNames = new ArrayList<>();
+    public final String conceptIndexName;
+    private final String conceptIndexConfig;
+    private final String conceptIndexMapping;
+    public final String terminologyIndexName;
+    private final String terminologyIndexConfig;
+    private final String terminologyIndexMapping;
 
-    private final String indexMappingType;
     private final boolean deleteIndexOnAppRestart;
+    private final String[] indexesToDelete;
 
     private final IndexTermedService termedApiService;
     private final ObjectMapper objectMapper;
@@ -76,69 +79,93 @@ public class IndexElasticSearchService {
     public IndexElasticSearchService(@Value("${search.host.url}") String searchHostUrl,
                                      @Value("${search.host.port}") int searchHostPort,
                                      @Value("${search.host.scheme}") String searchHostScheme,
-                                     @Value("${search.index.file}") String createIndexFilename,
-                                     @Value("${search.index.mapping.file}") String createMappingsFilename,
-                                     @Value("${search.index.name}") String indexName,
-                                     @Value("${search.index.mapping.type}") String indexMappingType,
+                                     @Value("${search.concept.index.name}") String conceptIndexName,
+                                     @Value("${search.concept.index.config}") String conceptIndexConfig,
+                                     @Value("${search.concept.index.mapping}") String conceptIndexMapping,
+                                     @Value("${search.terminology.index.name}") String terminologyIndexName,
+                                     @Value("${search.terminology.index.config}") String terminologyIndexConfig,
+                                     @Value("${search.terminology.index.mapping}") String terminologyIndexMapping,
                                      @Value("${search.index.deleteIndexOnAppRestart}") boolean deleteIndexOnAppRestart,
-                                     IndexTermedService termedApiService,
-                                     ObjectMapper objectMapper,
-                                     final RestHighLevelClient esHiLvClient) {
-        this.createIndexFilename = createIndexFilename;
-        this.createMappingsFilename = createMappingsFilename;
-        this.indexName = indexName;
-        this.indexMappingType = indexMappingType;
+                                     @Value("${search.index.deleteIndexOnAppRestart.indexes: #{null}}") @Nullable String indexesToDelete,
+                                     final IndexTermedService termedApiService,
+                                     final ObjectMapper objectMapper,
+                                     @Qualifier("elasticSearchRestHighLevelClient") final RestHighLevelClient esHiLvClient) {
+
+        this.conceptIndexName = conceptIndexName;
+        this.conceptIndexConfig = conceptIndexConfig;
+        this.conceptIndexMapping = conceptIndexMapping;
+        this.terminologyIndexName = terminologyIndexName;
+        this.terminologyIndexConfig = terminologyIndexConfig;
+        this.terminologyIndexMapping = terminologyIndexMapping;
         this.deleteIndexOnAppRestart = deleteIndexOnAppRestart;
+
+        if (indexesToDelete != null) {
+            this.indexesToDelete = Arrays.stream(indexesToDelete.trim().split("\\s*,\\s*"))
+                .filter((String index) -> index != null && !index.isEmpty())
+                .toArray(String[]::new);
+        } else {
+            this.indexesToDelete = new String[]{ this.conceptIndexName, this.terminologyIndexName };
+        }
+
         this.termedApiService = termedApiService;
         this.objectMapper = objectMapper;
         this.esRestClient = RestClient.builder(new HttpHost(searchHostUrl, searchHostPort, searchHostScheme)).build();
         this.esHiLvClient = esHiLvClient; // Use that for resource api
     }
 
-    public void initIndex() {
+    public void initIndexes() {
+        if (deleteIndexOnAppRestart && indexesToDelete.length > 0) {
+            log.info("Cleaning indexes: " + String.join(", ", indexesToDelete));
+            for (String index : indexesToDelete) {
+                deleteIndex(index);
+            }
+        } else {
+            log.warn("Possibly reusing old indexes (if those exist)");
+        }
 
-        String[] indexNames = indexName.split(",");
-        String[] indexMaps = createMappingsFilename.split(",");
-        String[] indexMappingTypes = indexMappingType.split(",");
-        if (indexNames.length != indexMaps.length) {
-            log.error("InitIndex, configuration error. Mismatching index-names / mappings");
-            return;
-        }
-        for (int x = 0; x < indexNames.length; x++) {
-            log.info("Init index =" + indexNames[x] + " - " + indexMaps[x] + " - " + indexMappingTypes[x]);
-            initIndex(indexNames[x], indexMaps[x], indexMappingTypes[x]);
-        }
+        log.info("Initializing indexes");
+        initIndex(terminologyIndexName, terminologyIndexConfig, terminologyIndexMapping);
+        initIndex(conceptIndexName, conceptIndexConfig, conceptIndexMapping);
+
+        log.info("Attempting full reindex");
+        reindex();
     }
 
-    public void initIndex(String index,
-                          String mapping,
-                          String mappingType) {
+    private void initIndex(String indexName,
+                           String configFile,
+                           String mappingFile) {
 
-        if (deleteIndexOnAppRestart) {
-            deleteIndex(index);
-        }
-
-        if (!indexExists(index) && createIndex(index) && createMapping(index, mapping, mappingType)) {
-            doFullIndexing();
+        if (!indexExists(indexName)) {
+            log.info("Creating index " + indexName + " with config from " + configFile + " and mapping from " + mappingFile);
+            if (createIndex(indexName, configFile) && createMapping(indexName, mappingFile)) {
+                log.info("Index " + indexName + " created and configured");
+            } else {
+                log.error("Could not create index " + indexName);
+                throw new RuntimeException("Could not create index " + indexName);
+            }
+        } else {
+            log.warn("Skipping initialization of already existing index " + indexName);
         }
     }
 
     public void reindex() {
         log.info("Starting reindexing task..");
-        // Clean vocabularies
-        deleteAllDocumentsFromNamedIndex("vocabularies");
-        this.deleteAllDocumentsFromIndex();
-        this.doFullIndexing();
+        deleteAllDocumentsFromNamedIndex(conceptIndexName);
+        deleteAllDocumentsFromNamedIndex(terminologyIndexName);
+        doFullIndexing();
         log.info("Finished reindexing!");
     }
 
     private void doFullIndexing() {
-        reindexVocabularies();
-        // Index concepts from all vocabularies
+        indexTerminologies();
+        indexConcepts();
+    }
+
+    private void indexConcepts() {
         termedApiService.fetchAllAvailableGraphIds().forEach(graphId -> reindexGraph(graphId, false));
     }
 
-    private void reindexVocabularies() {
+    private void indexTerminologies() {
         // Index terminologies
         long start = System.currentTimeMillis();
         // index also all vocabulary-objects
@@ -251,7 +278,7 @@ public class IndexElasticSearchService {
         }
         // if treshold is , make full reindex
         if (nodes.hasVocabulary() && nodes.getVocabularyIds().size() > fullReindexNodeCountThreshold) {
-            reindexVocabularies();
+            indexTerminologies();
         } else {
             if (log.isDebugEnabled()) {
                 log.debug("partial update!");
@@ -326,19 +353,8 @@ public class IndexElasticSearchService {
         }
     }
 
-    private void deleteIndex() {
-        log.info("Deleting elasticsearch index: " + indexName);
-        Stream<String> ind = Stream.of(indexName.split(",")).map(o -> o.trim());
-        ind.forEach(s -> {
-            deleteIndex(s);
-        });
-    }
-
-    private void deleteIndex(String index) {
-        log.info("Deleting elasticsearch index: " + index);
-
-        Response response = alsoUnsuccessful(() -> esRestClient.performRequest("DELETE", "/" + index));
-
+    private void deleteIndex(final String index) {
+        Response response = alsoUnsuccessful(() -> esRestClient.performRequest(new Request("DELETE", "/" + index)));
         if (isSuccess(response)) {
             log.info("Elasticsearch index deleted: " + index);
         } else {
@@ -347,73 +363,73 @@ public class IndexElasticSearchService {
     }
 
     private boolean indexExists(String index) {
-        log.info("Checking if elasticsearch index exists: " + index);
-        Response response = alsoUnsuccessful(() -> esRestClient.performRequest("HEAD", "/" + index));
+
+        log.debug("Checking if elasticsearch index exists: " + index);
+        Response response = alsoUnsuccessful(() -> esRestClient.performRequest(new Request("HEAD", "/" + index)));
         if (response.getStatusLine().getStatusCode() == 404) {
-            log.info("Elasticsearch index does not exist: " + index);
+            log.debug("Elasticsearch index does not exist: " + index);
             return false;
         } else {
+            log.debug("Elasticsearch index exists: " + index);
             return true;
         }
     }
 
-    private boolean createIndex(String index) {
+    private boolean createIndex(String indexName,
+                                String configFile) {
 
-        HttpEntity entity = createHttpEntity(createIndexFilename);
-        log.info("Trying to create elasticsearch index: " + index);
-        Response response = alsoUnsuccessful(
-            () -> esRestClient.performRequest("PUT", "/" + index, singletonMap("pretty", "true"), entity));
+        log.debug("Creating index " + indexName + " with config file " + configFile);
+        HttpEntity entity = createHttpEntity(configFile);
+        Response response = alsoUnsuccessful(() -> {
+            Request request = new Request("PUT", "/" + indexName);
+            request.addParameter("pretty", "true");
+            request.setEntity(entity);
+            return esRestClient.performRequest(request);
+        });
 
         if (isSuccess(response)) {
-            log.info("elasticsearch index successfully created: " + index);
+            log.debug("Created index " + indexName);
             return true;
         } else {
-            log.warn("Unable to create elasticsearch index: " + index);
+            log.error("Failed creating index " + indexName + ": " + response.getStatusLine());
             return false;
         }
     }
 
-    private boolean createMapping(String index,
-                                  String mapping,
-                                  String mappingType) {
+    private boolean createMapping(String indexName,
+                                  String mappingFile) {
 
-        HttpEntity entity = createHttpEntity(mapping);
-        log.info("Trying to create elasticsearch index mapping type: " + mappingType);
-        // Mapping name is same than index name
-        // Response response = alsoUnsuccessful(() -> esRestClient.performRequest("PUT",
-        // "/" + index + "/_mapping/" + index, singletonMap("pretty", "true"), entity));
-
-        Response response = alsoUnsuccessful(() -> esRestClient.performRequest("PUT",
-            "/" + index + "/_mapping/" + mappingType, singletonMap("pretty", "true"), entity));
+        log.debug("Creating mapping for index " + indexName + " from file " + mappingFile);
+        HttpEntity entity = createHttpEntity(mappingFile);
+        Response response = alsoUnsuccessful(() -> {
+            Request request = new Request("PUT", "/" + indexName + "/_mappings/_doc");
+            request.addParameter("pretty", "true");
+            request.setEntity(entity);
+            return esRestClient.performRequest(request);
+        });
 
         if (isSuccess(response)) {
-            log.info("elasticsearch index mapping type successfully created: " + mappingType);
+            log.debug("Configured mapping for index " + indexName);
             return true;
         } else {
-            log.warn("Unable to create elasticsearch index mapping type: " + mappingType);
+            log.error("Failed configuring mapping for index " + indexName + ": " + response.getStatusLine());
             return false;
         }
     }
 
     private @NotNull String createBulkIndexMetaAndSource(@NotNull Concept concept) {
-        return createBulkIndexMetaAndSource(concept, "concepts");
+        return createBulkIndexMetaAndSource(concept, conceptIndexName);
     }
-
-    // private @NotNull String createBulkIndexMetaAndSource(@NotNull JsonNode
-    // vocabulary) {
-    // return createBulkIndexMetaAndSource(concept, "concept");
-    // }
 
     private @NotNull String createBulkIndexMetaAndSource(@NotNull Concept concept,
                                                          String index) {
-        return "{\"index\":{\"_index\": \"" + index + "\", \"_type\": \"concept\", \"_id\":\"" + concept.getDocumentId()
+        return "{\"index\":{\"_index\": \"" + index + "\", \"_id\":\"" + concept.getDocumentId()
             + "\"}}\n" + concept.toElasticSearchDocument(objectMapper) + "\n";
     }
 
     private @NotNull String createBulkDeleteMeta(@NotNull UUID graphId,
                                                  @NotNull UUID conceptId) {
-        return "{\"delete\":{\"_index\": \"" + indexName + "\", \"_type\": \"concept\", \"_id\":\""
-            + Concept.formDocumentId(graphId, conceptId) + "\"}}\n";
+        return "{\"delete\":{\"_index\": \"" + conceptIndexName + "\", \"_id\":\"" + Concept.formDocumentId(graphId, conceptId) + "\"}}\n";
     }
 
     private void bulkUpdateAndDeleteDocumentsToIndex(@NotNull UUID graphId,
@@ -483,7 +499,7 @@ public class IndexElasticSearchService {
         HttpEntity body = new NStringEntity("{\"query\": { \"match\": {\"vocabulary.id\": \"" + graphId + "\"}}}",
             ContentType.APPLICATION_JSON);
         Response response = alsoUnsuccessful(
-            () -> esRestClient.performRequest("POST", "/" + indexName + "/_delete_by_query", emptyMap(), body));
+            () -> esRestClient.performRequest("POST", "/" + conceptIndexName + "/_delete_by_query", emptyMap(), body));
 
         if (isSuccess(response)) {
             log.info(responseContentAsString(response));
@@ -493,35 +509,19 @@ public class IndexElasticSearchService {
         }
     }
 
-    private void deleteAllDocumentsFromIndex() {
+    private void deleteAllDocumentsFromNamedIndex(String indexName) {
 
         HttpEntity body = new NStringEntity("{\"query\": { \"match_all\": {}}}", ContentType.APPLICATION_JSON);
-        // Response response = alsoUnsuccessful(() ->
-        // esRestClient.performRequest("POST",
-        // "/" + indexName + "/" + indexMappingType + "/_delete_by_query", emptyMap(),
-        // body));
-        Response response = alsoUnsuccessful(
-            () -> esRestClient.performRequest("POST", "/" + indexName + "/_delete_by_query", emptyMap(), body));
+        Response response = alsoUnsuccessful(() -> {
+            Request request = new Request("POST", "/" + indexName + "/_delete_by_query");
+            request.setEntity(body);
+            return esRestClient.performRequest(request);
+        });
 
         if (isSuccess(response)) {
-            log.info(responseContentAsString(response));
-            log.info("Successfully deleted all documents from elasticsearch index");
+            log.debug("Successfully deleted all documents from index " + indexName);
         } else {
-            log.warn("Unable to delete documents from elasticsearch index");
-        }
-    }
-
-    private void deleteAllDocumentsFromNamedIndex(String index) {
-
-        HttpEntity body = new NStringEntity("{\"query\": { \"match_all\": {}}}", ContentType.APPLICATION_JSON);
-        Response response = alsoUnsuccessful(
-            () -> esRestClient.performRequest("POST", "/" + index + "/_delete_by_query", emptyMap(), body));
-
-        if (isSuccess(response)) {
-            log.info(responseContentAsString(response));
-            log.info("Successfully deleted all documents from elasticsearch index:" + index);
-        } else {
-            log.warn("Unable to delete documents from elasticsearch index:" + index);
+            log.error("Unable to delete documents from index " + indexName + ": " + response.getStatusLine());
         }
     }
 
@@ -533,7 +533,7 @@ public class IndexElasticSearchService {
 
         HttpEntity body = new NStringEntity(query, ContentType.APPLICATION_JSON);
         try {
-            Response response = esRestClient.performRequest("GET", endpoint, Collections.emptyMap(), body);
+            Response response = esRestClient.performRequest("GET", endpoint, emptyMap(), body);
             String resp = responseContentAsString(response);
             if (isSuccess(response)) {
                 if (log.isDebugEnabled()) {
@@ -585,7 +585,7 @@ public class IndexElasticSearchService {
 
         HttpEntity body = new NStringEntity(query, ContentType.APPLICATION_JSON);
         try {
-            Response response = esRestClient.performRequest("GET", endpoint, Collections.emptyMap(), body);
+            Response response = esRestClient.performRequest("GET", endpoint, emptyMap(), body);
             String resp = responseContentAsString(response);
             if (isSuccess(response)) {
                 if (log.isDebugEnabled()) {

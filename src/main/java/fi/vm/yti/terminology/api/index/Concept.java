@@ -9,8 +9,6 @@ import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import fi.vm.yti.terminology.api.util.JsonUtils;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -22,7 +20,7 @@ import static java.util.stream.Collectors.toList;
 final class Concept {
 
     private final UUID id;
-    private final Vocabulary vocabulary;
+    private final SimpleTerminology vocabulary;
     private final Map<String, List<String>> label;
     private final Map<String, List<String>> altLabel;
     private final Map<String, List<String>> definition;
@@ -40,7 +38,7 @@ final class Concept {
     private final String uri;
 
     private Concept(UUID id,
-                    Vocabulary vocabulary,
+                    SimpleTerminology vocabulary,
                     Map<String, List<String>> label,
                     Map<String, List<String>> altLabel,
                     Map<String, List<String>> definition,
@@ -71,7 +69,7 @@ final class Concept {
     private static @NotNull Concept createFromTermedNodes(@NotNull JsonNode conceptJson,
                                                           @NotNull List<JsonNode> prefLabelXlReferences,
                                                           @NotNull List<JsonNode> altLabelXlReferences,
-                                                          @NotNull Vocabulary vocabulary) {
+                                                          @NotNull SimpleTerminology vocabulary) {
 
         UUID id = UUID.fromString(conceptJson.get("id").textValue());
         String createdDate = conceptJson.get("createdDate").textValue();
@@ -108,7 +106,7 @@ final class Concept {
     }
 
     static @NotNull Concept createFromExtJson(@NotNull JsonNode json,
-                                              @NotNull Vocabulary vocabulary) {
+                                              @NotNull SimpleTerminology vocabulary) {
 
         JsonNode references = json.get("references");
 
@@ -129,7 +127,7 @@ final class Concept {
 
         JsonNode conceptJson = requireNonNull(allNodesResult.getNode(conceptId, "Concept"));
         JsonNode vocabularyJson = requireNonNull(allNodesResult.getNode(vocabularyId));
-        Vocabulary vocabulary = Vocabulary.createFromExtJson(vocabularyJson);
+        SimpleTerminology vocabulary = SimpleTerminology.createFromExtJson(vocabularyJson);
 
         JsonNode references = conceptJson.get("references");
 
@@ -174,7 +172,7 @@ final class Concept {
         String createdDate = json.has("created") ? json.get("created").textValue() : null;
         String lastModifiedDate = json.has("modified") ? json.get("modified").textValue() : null;
         String status = json.has("status") ? json.get("status").textValue() : null;
-        Vocabulary vocabulary = Vocabulary.createFromIndex(mapper, json.get("vocabulary"));
+        SimpleTerminology vocabulary = SimpleTerminology.createFromIndex(mapper, json.get("vocabulary"));
         String uri = json.has("uri") ? json.get("uri").textValue() : null;
 
         return new Concept(id, vocabulary, label, altLabel, definition, status, broader, narrower, definedInScheme, usedInScheme,
@@ -195,7 +193,7 @@ final class Concept {
     }
 
     @NotNull String getDocumentId() {
-        return formDocumentId(vocabulary.getGraphId(), id);
+        return formDocumentId(vocabulary.getId(), id);
     }
 
     static @NotNull String formDocumentId(@NotNull UUID graphId,

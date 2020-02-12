@@ -141,7 +141,7 @@ public class IndexTermedService {
             return emptyList();
         }
 
-        Vocabulary vocabulary = getVocabulary(graphId);
+        SimpleTerminology vocabulary = getVocabulary(graphId);
 
         if (vocabulary != null) {
             return getConcepts(vocabulary, ids);
@@ -150,7 +150,7 @@ public class IndexTermedService {
         }
     }
 
-    private @NotNull List<Concept> getConcepts(@NotNull Vocabulary vocabulary,
+    private @NotNull List<Concept> getConcepts(@NotNull SimpleTerminology vocabulary,
                                                @NotNull Collection<UUID> conceptIds) {
 
         Parameters params = new Parameters();
@@ -169,7 +169,7 @@ public class IndexTermedService {
         params.add("select", "references.altLabelXl:2");
         params.add("select", "references.broader");
         params.add("select", "referrers.broader");
-        params.add("where", "graph.id:" + vocabulary.getGraphId());
+        params.add("where", "graph.id:" + vocabulary.getId());
         params.add("where", idInCollectionWhereClause(conceptIds));
         params.add("max", "-1");
 
@@ -186,12 +186,12 @@ public class IndexTermedService {
             .collect(Collectors.joining(" OR "));
     }
 
-    private @Nullable Vocabulary getVocabulary(@NotNull UUID graphId) {
+    private @Nullable SimpleTerminology getVocabulary(@NotNull UUID graphId) {
 
         JsonNode vocabularyNode = getVocabularyNode(graphId);
 
         if (vocabularyNode != null) {
-            return Vocabulary.createFromExtJson(vocabularyNode);
+            return SimpleTerminology.createFromExtJson(vocabularyNode);
         } else {
             log.warn("Vocabulary not found for graph " + graphId);
             return null;

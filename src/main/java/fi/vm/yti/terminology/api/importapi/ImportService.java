@@ -1,13 +1,12 @@
 package fi.vm.yti.terminology.api.importapi;
 
 import fi.vm.yti.security.AuthenticatedUserProvider;
-import fi.vm.yti.terminology.api.TermedRequester;
+import fi.vm.yti.mq.service.YtiMQService;
 import fi.vm.yti.terminology.api.frontend.FrontendGroupManagementService;
 import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
 import fi.vm.yti.terminology.api.importapi.ImportStatusResponse.Status;
 import fi.vm.yti.terminology.api.model.ntrf.VOCABULARY;
 import fi.vm.yti.terminology.api.model.termed.GenericNode;
-import fi.vm.yti.terminology.api.model.termed.Graph;
 import fi.vm.yti.terminology.api.model.termed.MetaNode;
 import fi.vm.yti.terminology.api.security.AuthorizationManager;
 import fi.vm.yti.terminology.api.util.JsonUtils;
@@ -147,7 +146,7 @@ public class ImportService {
 
     ResponseEntity<String> handleNtrfDocumentAsync(String format, UUID terminologyId, MultipartFile file) {
         String rv;
-        System.out.println("Incoming vocabularity= "+terminologyId+" - file:"+file.getName()+" size:"+file.getSize()+ " type="+file.getContentType());
+        System.out.println("Incoming terminology= "+terminologyId+" - file:"+file.getName()+" size:"+file.getSize()+ " type="+file.getContentType());
         // Fail if given format string is not ntrf
         if (!format.equals("ntrf")) {
             logger.error("Unsupported format:<" + format + "> (Currently supported formats: ntrf)");
@@ -157,17 +156,16 @@ public class ImportService {
 
         GenericNode terminology = null;
 
-        // Get vocabularity
+        // Get vocabulary        
         try {
             terminology = termedService.getNode(terminologyId);
-            // Import running for given vocabulary, drop it
+            // Import running for given terminology, drop it
             if(ytiMQService.checkIfImportIsRunning(terminology.getUri())){
                 logger.error("Import running for Vocabulary:<" + terminologyId + ">");
                 return new ResponseEntity<>("Import running for Vocabulary:<" + terminologyId+">", HttpStatus.CONFLICT);
             }
         } catch ( NullPointerException nex){
-            // Vocabularity not found
-            logger.error("Vocabulary:<" + terminologyId + "> not found");
+            logger.error("Terminology:<" + terminologyId + "> not found");
             return new ResponseEntity<>("Vocabulary:<" + terminologyId + "> not found\n", HttpStatus.NOT_FOUND);
         }
 
@@ -179,9 +177,8 @@ public class ImportService {
         rv = new ImportResponse(operationId.toString()).toString();
         // Handle incoming xml
         try {
-            System.out.println("userProvider"+userProvider.getUser());            
             // Just force to use test user
-            String userId =  userProvider.getUser().getId()== null ? "7095c4eb-d2ce-4a32-9245-def5c0c8fd8d" : userProvider.getUser().getId().toString();
+            String userId =  userProvider.getUser().getId()== null ? "00000000-0000-0000-0000-000000000000" : userProvider.getUser().getId().toString();
             System.out.println("userProvider"+userProvider.getUser()+ "id ="+userId);            
             ytiMQService.setStatus(YtiMQService.STATUS_PREPROCESSING, operationId.toString(), userId , terminology.getUri(),"Validating");
             JAXBContext jc = JAXBContext.newInstance(VOCABULARY.class);
@@ -201,7 +198,7 @@ public class ImportService {
             System.out.println("Incoming objects count=" + l.size());
             ImportStatusResponse response = new ImportStatusResponse();
             response.setStatus(Status.PREPROCESSING);
-            response.addStatusMessage(new ImportStatusMessage("Vocabulary",l.size()+" items validated"));
+            response.addStatusMessage(new ImportStatusMessage("Terminology ",l.size()+" items validated"));
             response.setProcessingTotal(l.size());
             ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, operationId.toString(), userId, terminology.getUri(),response.toString());
             StringWriter sw = new StringWriter();

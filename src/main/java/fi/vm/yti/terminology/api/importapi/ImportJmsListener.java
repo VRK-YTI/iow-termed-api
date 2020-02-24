@@ -59,10 +59,12 @@ public class ImportJmsListener {
                                  @Header String system,
                                  @Header String vocabularyId,
                                  @Header String uri) throws JMSException {
-	    // Consume incoming
-        System.out.println("Process message "+ message.getHeaders());
-        System.out.println("session= "+ session);
-        System.out.println("UserId="+userId);
+        // Consume incoming
+        if(logger.isDebugEnabled()){
+            logger.debug("Process message "+ message.getHeaders());
+            logger.debug("session= "+ session);
+            logger.debug("UserId="+userId);
+        }
         String payload ="{}";
         if(jmsMessagingTemplate == null){
             logger.error("MessagingTemplate not initialized!!!!!");
@@ -90,9 +92,8 @@ public class ImportJmsListener {
         }
 
         // Set import as handled. IE. consume processed message
-//        ytiMQService.setReady(jobtoken);
         logger.info("Import handled:" + payload);
-
+/*
         MessageHeaderAccessor accessor = new MessageHeaderAccessor();
         accessor.copyHeaders(message.getHeaders());
         // Set result as a payload and move it to ready-queue1
@@ -100,6 +101,7 @@ public class ImportJmsListener {
                 .withPayload(payload)
                 .setHeaders(accessor)
                 .build();
-        return mess;
+        return mess; */
+        return message;
 	}
 }

@@ -62,9 +62,9 @@ import fi.vm.yti.terminology.api.util.JsonUtils;
  * URI: skos:inScheme
  */
 @Component
-public class V17_NewCommonMetaModelUpdate implements MigrationTask {
+public class V20_NewCommonMetaModelUpdate implements MigrationTask {
 
-    private static Logger logger = LoggerFactory.getLogger(V17_NewCommonMetaModelUpdate.class);
+    private static Logger logger = LoggerFactory.getLogger(V20_NewCommonMetaModelUpdate.class);
     private final MigrationService migrationService;
 
     // graph-id, Url
@@ -72,7 +72,7 @@ public class V17_NewCommonMetaModelUpdate implements MigrationTask {
     // vocabulary-id, Url
     private HashMap<UUID, String> vocabularyUrlMapping = new HashMap<>();
 
-    V17_NewCommonMetaModelUpdate(MigrationService migrationService) {
+    V20_NewCommonMetaModelUpdate(MigrationService migrationService) {
         this.migrationService = migrationService;
     }
 

@@ -30,8 +30,24 @@ public final class AttributeIndex {
     }
 
     @NotNull
-    public static AttributeMeta prefLabelXl(TypeId domain,
-                                            long index) {
+
+    public static AttributeMeta prefLabel(TypeId domain, long index, String fi, String en, String sv) {
+
+        return new AttributeMeta(
+                "prefLabel",
+                "http://www.w3.org/2004/02/skos/core#prefLabel",
+                index,
+                domain,
+                emptyMap(),
+                merge(
+                        PropertyUtil.prefLabel(fi, en, sv),
+                        type("localizable:single,required")
+                )
+        );
+    }
+
+    @NotNull
+    public static AttributeMeta prefLabelXl(TypeId domain, long index) {
 
         return new AttributeMeta(
             "prefLabel",

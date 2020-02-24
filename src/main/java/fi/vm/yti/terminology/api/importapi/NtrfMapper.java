@@ -29,6 +29,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpServerErrorException;
 
 import fi.vm.yti.security.AuthenticatedUserProvider;
+import fi.vm.yti.mq.service.YtiMQService;
 import fi.vm.yti.terminology.api.TermedRequester;
 import fi.vm.yti.terminology.api.frontend.FrontendGroupManagementService;
 import fi.vm.yti.terminology.api.frontend.FrontendTermedService;
@@ -206,8 +207,7 @@ public class NtrfMapper {
                            VOCABULARY ntrfDocument,
                            UUID userId) {
         GenericNode terminology = null;
-        logger.info("mapNtRfDocument: Vocabularity Id:" + terminologyId);
-        System.out.println("mapNtRfDocument: Vocabularity Id:" + terminologyId);
+        logger.info("mapNtRfDocument: Terminology Id:" + terminologyId);
         Long startTime = new Date().getTime();
 
         idMap.clear();
@@ -222,12 +222,12 @@ public class NtrfMapper {
             terminology = termedService.getNode(terminologyId);
         } catch (NullPointerException nex) {
             // Vocabularity not found
-            logger.error("Vocabulary:<" + terminologyId + "> not found");
-            return "Vocabulary:<" + terminologyId + "> not found";
+            logger.error("Terminology:<" + terminologyId + "> not found");
+            return "Terminology:<" + terminologyId + "> not found";
         }
 
         if (!initImport(terminologyId)) {
-            return "Vocabulary:<" + terminologyId + "> initialization error";
+            return "Terminology:<" + terminologyId + "> initialization error";
         }
 
         // Get statistic of terms
@@ -250,7 +250,7 @@ public class NtrfMapper {
 
         ImportStatusResponse response = new ImportStatusResponse();
         response.setStatus(Status.PROCESSING);
-        response.addStatusMessage(new ImportStatusMessage("Vocabulary", "Import started"));
+        response.addStatusMessage(new ImportStatusMessage("Terminology", "Import started"));
         response.setProcessingTotal(records.size());
         response.setProcessingProgress(0);
 
@@ -266,7 +266,7 @@ public class NtrfMapper {
             currentCount++;
             response.setStatus(Status.PROCESSING);
             response.clearStatusMessages(); // Forget previous
-            response.addStatusMessage(new ImportStatusMessage("Vocabulary", "Processing records"));
+            response.addStatusMessage(new ImportStatusMessage("Terminology", "Processing records"));
             response.setProcessingProgress(currentCount);
             response.setResultsError(errorCount);
             ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, jobtoken, userId.toString(), terminology.getUri(),
@@ -275,18 +275,17 @@ public class NtrfMapper {
             if (flushCount > 100) {
                 flushCount = 0;
                 GenericDeleteAndSave operation = new GenericDeleteAndSave(deleteNodeList, addNodeList);
-//                GenericDeleteAndSave operation = new GenericDeleteAndSave(emptyList(), addNodeList);
                 if (logger.isDebugEnabled())
                     logger.debug(JsonUtils.prettyPrintJsonAsString(operation));
 
                 response.setStatus(Status.PROCESSING);
                 response.clearStatusMessages(); // Forget previous
                 if (!updateAndDeleteInternalNodes(userId, operation, true)) {
-                    response.addStatusMessage(new ImportStatusMessage("Vocabulary",
+                    response.addStatusMessage(new ImportStatusMessage("Terminology",
                         "Processing records, import failed for " + currentRecord));
                     errorCount++;
                 } else {
-                    response.addStatusMessage(new ImportStatusMessage("Vocabulary", "Processing records"));
+                    response.addStatusMessage(new ImportStatusMessage("Terminology", "Processing records"));
                     // Import successfull, add id:s to resolved one.
                     addNodeList.forEach(node -> {
                         // Add id for reference resolving
@@ -300,14 +299,13 @@ public class NtrfMapper {
                 addNodeList.clear();
             }
         }
-        JsonUtils.prettyPrintJson(addNodeList);
         GenericDeleteAndSave operation = new GenericDeleteAndSave(deleteNodeList, addNodeList);
-//        GenericDeleteAndSave operation = new GenericDeleteAndSave(emptyList(), addNodeList);
-        if (logger.isDebugEnabled())
+        if (logger.isDebugEnabled()){
             logger.debug(JsonUtils.prettyPrintJsonAsString(operation));
+        }
         if (!updateAndDeleteInternalNodes(userId, operation, true)) {
             response.addStatusMessage(
-                new ImportStatusMessage("Vocabulary", "Processing records, import failed for " + currentRecord));
+                new ImportStatusMessage("Terminology", "Processing records, import failed for " + currentRecord));
         } else {
             // Import successfull, add id:s to resolved one.
             addNodeList.forEach(v -> {
@@ -338,11 +336,11 @@ public class NtrfMapper {
             handleDIAG(terminology, o, addNodeList);
         }
         response.setStatus(Status.PROCESSING);
-        response.addStatusMessage(new ImportStatusMessage("Vocabulary", "Processing DIAG number=" + DIAGList.size()));
+        response.addStatusMessage(new ImportStatusMessage("Terminology", "Processing DIAG number=" + DIAGList.size()));
         response.setProcessingProgress(records.size());
         ytiMQService.setStatus(YtiMQService.STATUS_PROCESSING, jobtoken, userId.toString(), terminology.getUri(),
             response.toString());
-        // Add DIAG-list to vocabulary
+        // Add DIAG-list 
         operation = new GenericDeleteAndSave(emptyList(), addNodeList);
         if (logger.isDebugEnabled())
             logger.debug(JsonUtils.prettyPrintJsonAsString(operation));
@@ -360,7 +358,7 @@ public class NtrfMapper {
         statusList.forEach(v -> {
             StatusMessage m = (StatusMessage) v;
             response.addStatusMessage(new ImportStatusMessage(m.getLevel(), m.getRecord(), m.getMessage().toString()));
-            logger.info("Item : " + m.getRecord() + " value : " + m.getMessage().toString());
+            logger.warn("Item : " + m.getRecord() + " value : " + m.getMessage().toString());
         });
 
         response.setProcessingTotal(records.size());
@@ -377,9 +375,10 @@ public class NtrfMapper {
             response.setStatus(Status.SUCCESS);
         }
         // ImportStatusResponse
-        // test=ImportStatusResponse.fromString(JsonUtils.prettyPrintJsonAsString(response));
         ytiMQService.setStatus(YtiMQService.STATUS_READY, jobtoken, userId.toString(), terminology.getUri(),
             response.toString());
+        ytiMQService.removeStatusMessage(terminology.getUri());
+        ytiMQService.viewStatus();
         statusList.clear();
         return response.toString();
     }
@@ -402,7 +401,7 @@ public class NtrfMapper {
                     gn = termedService.getConceptNode(sourceId);
 //                    gn = termedService.getConceptNode(terminology.getId(), sourceId);
                 } catch (NullPointerException nex) {
-                    logger.warn("Can't found concept node:" + key + " id:" + sourceId + " in vocabulary:"
+                    logger.warn("Can't found concept node:" + key + " id:" + sourceId + " at terminology:"
                         + terminology.getId().toString());
                 }
                 if (gn != null) {
@@ -677,7 +676,7 @@ public class NtrfMapper {
     private void cleanTerms(UUID graphId,
                             UUID conceptId,
                             List<Identifier> deleteNodeList) {
-        logger.info("clearTerm from:" + graphId + " concept:" + conceptId.toString());
+        logger.warn("clear orphan Term from:" + graphId + " concept:" + conceptId.toString());
         // Get concept
         GenericNode node = termedService.getConceptNode(conceptId);
         if (node != null) {
@@ -1107,7 +1106,9 @@ public class NtrfMapper {
                 handleGRAM((GRAM) li, properties);
                 String prefLabel = ((GRAM) li).getContent();
                 // Add actual pref-label for term
-                logger.info("Handle Term with GRAM:" + prefLabel);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Handle Term with GRAM:" + prefLabel);
+                }
                 termName = termName.concat(prefLabel+" ");
             } else {
                 logger.error(" TERM: unhandled contentclass=" + li.getClass().getName() + " value=" + li.toString());
@@ -1252,7 +1253,7 @@ public class NtrfMapper {
                 // <SCOPE>yliopistolain <LINK
                 // href="https://www.finlex.fi/fi/laki/kaannokset/2009/en20090558_20160644.pdf">558/2009
                 // käännöksessä</LINK></SCOPE>
-                logger.info("Unimplemented SCOPE WITH LINK");
+                logger.warn("Unimplemented SCOPE WITH LINK");
                 // @TODO! Make impl
             }
         });
@@ -1387,9 +1388,10 @@ public class NtrfMapper {
         // Remove #
         if (brefId.startsWith("#"))
             brefId = o.getHref().substring(1);
-
-        logger.info("handleBCON add item from source record:" + currentRecord + "--> target:" + brefId + " Type"
+        if(logger.isDebugEnabled()){
+            logger.debug("handleBCON add item from source record:" + currentRecord + "--> target:" + brefId + " Type"
             + o.getTypr());
+        }
         ConnRef conRef = new ConnRef();
         // Use delayed resolving, so save record id for logging purposes
         conRef.setCode(currentRecord);
@@ -1425,8 +1427,9 @@ public class NtrfMapper {
         // Remove #
         if (brefId.startsWith("#"))
             brefId = o.getHref().substring(1);
-
-        logger.info("handleRCON add item from source record:" + currentRecord + "--> target:" + brefId);
+        if(logger.isDebugEnabled()){
+            logger.debug("handleRCON add item from source record:" + currentRecord + "--> target:" + brefId);
+        }
         ConnRef conRef = new ConnRef();
         // Use delayed resolving, so save record id for logging purposes
         conRef.setCode(currentRecord);
@@ -1465,7 +1468,9 @@ public class NtrfMapper {
         if (rrefId.startsWith("#"))
             rrefId = rc.getHref().substring(1);
 
-        logger.info("handleRCONRef add item from source record:" + currentRecord + "--> target:" + rrefId);
+        if(logger.isDebugEnabled()){
+            logger.debug("handleRCONRef add item from source record:" + currentRecord + "--> target:" + rrefId);
+        }
         ConnRef conRef = new ConnRef();
         // Use delayed resolving, so save record id for logging purposes
         conRef.setCode(currentRecord);
@@ -1505,7 +1510,9 @@ public class NtrfMapper {
         if (rrefId.startsWith("#"))
             rrefId = bc.getHref().substring(1);
 
-        logger.info("handleBCONRef add item from source record:" + currentRecord + "--> target:" + rrefId);
+        if(logger.isDebugEnabled()){
+            logger.debug("handleBCONRef add item from source record:" + currentRecord + "--> target:" + rrefId);
+        }
         ConnRef conRef = new ConnRef();
         // Use delayed resolving, so save record id for logging purposes
         conRef.setCode(currentRecord);
@@ -1545,7 +1552,9 @@ public class NtrfMapper {
         if (rrefId.startsWith("#"))
             rrefId = nc.getHref().substring(1);
 
-        logger.info("handleNCONRef add item from source record:" + currentRecord + "--> target:" + rrefId);
+        if(logger.isDebugEnabled()){
+            logger.debug("handleNCONRef add item from source record:" + currentRecord + "--> target:" + rrefId);
+        }
         ConnRef conRef = new ConnRef();
         // Use delayed resolving, so save record id for logging purposes
         conRef.setCode(currentRecord);
@@ -1582,7 +1591,9 @@ public class NtrfMapper {
             if (nrefId.startsWith("#")) {
                 nrefId = o.getHref().substring(1);
             }
-            logger.info("handleNCON add item from source record:" + currentRecord + "--> target:" + nrefId);
+            if(logger.isDebugEnabled()){
+                logger.debug("handleNCON add item from source record:" + currentRecord + "--> target:" + nrefId);
+            }
             ConnRef conRef = new ConnRef();
             // Use delayed resolving, so save record id for logging purposes
             conRef.setCode(currentRecord);
@@ -1631,9 +1642,9 @@ public class NtrfMapper {
                                 Map<String, List<Identifier>> parentReferences,
                                 Map<String, List<Attribute>> termProperties,
                                 GenericNode terminology) {
-        if (logger.isDebugEnabled())
+        if (logger.isDebugEnabled()){
             logger.debug("handleDEF-part:" + def.getContent());
-            logger.info("handleDEF-part:" + def.getContent());
+        }
 
         String defString = "";
 
@@ -1649,7 +1660,6 @@ public class NtrfMapper {
                 } else { // Add space befor and after if
                     defString = defString.concat(" " + str.trim() + " ");
                 }
-                System.out.println("--String handleDEF:"+defString);
             } else {
                 if (de instanceof RCON) {
                     // <NCON href="#tmpOKSAID122" typr="partitive">koulutuksesta (2)</NCON> ->
@@ -1773,8 +1783,7 @@ public class NtrfMapper {
             }
         }
         if (logger.isDebugEnabled())
-            logger.debug("Definition=" + defString);
-            logger.info("handleDEF=" + defString);
+            logger.debug("handleDEF Definition=" + defString);
         // Add definition if exist.
         if (!defString.isEmpty()) {
             // clean commans and points
@@ -1937,7 +1946,9 @@ public class NtrfMapper {
                     }
                     noteString = noteString.trim().concat("<a href='" + linkRef + "' data-type='external'>"
                         + lc.getContent().get(0).toString().trim() + "</a>");
-                    logger.info("Add LINK:" + linkRef);
+                    if(logger.isDebugEnabled()){
+                        logger.debug("Add LINK:" + linkRef);
+                    }
                 }
             } else if (de instanceof JAXBElement) {
                 JAXBElement j = (JAXBElement) de;

@@ -1,5 +1,7 @@
 package fi.vm.yti.terminology.api.system;
 
+import java.io.IOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,10 +43,11 @@ public class SystemController {
     @Operation(summary = "Get entity counts", description = "Get counts of main entity types, i.e., terminologies and concepts.")
     @ApiResponse(responseCode = "200", description = "Returns terminology and concept counts as JSON")
     @GetMapping(path = "/counts", produces = APPLICATION_JSON_VALUE)
-    ResponseEntity<String> countStatistics(
-        @Parameter(description = "Get full counts for all terminologies") @RequestParam(required = false, defaultValue = "false") boolean full
-    ) {
-        logger.info("GET /api/v1/system/counts requested");
+    ResponseEntity<String> countStatistics (
+        @Parameter(description = "Get also concept counts per terminology")
+        @RequestParam(required = false, defaultValue = "false") boolean full) throws IOException {
+
+        logger.info("GET /api/v1/system/counts requested (full: " + full + ")");
         return systemService.countStatistics(full);
     }
 

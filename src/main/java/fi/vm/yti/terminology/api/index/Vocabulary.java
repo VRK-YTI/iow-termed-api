@@ -49,6 +49,9 @@ public final class Vocabulary {
         String uri = json.get("uri").textValue();
         Map<String, List<String>> label = JsonUtils.localizableFromTermedProperties(properties, "prefLabel");
         String status = JsonUtils.getSinglePropertyValue(properties, "status");
+        if (status == null || status.isEmpty()) {
+            status = "DRAFT";
+        }
         return new Vocabulary(graphId, uri, label, status);
     }
 

@@ -61,7 +61,7 @@ dependencies {
 
     implementation 'fi.vm.yti:yti-spring-security:0.1.17'
     implementation 'fi.vm.yti:yti-spring-migration:0.1.4'
-    implementation 'fi.vm.yti:yti-spring-mq:0.1.4-SNAPSHOT'
+    implementation 'fi.vm.yti:yti-spring-mq:0.1.4'
     implementation 'org.apache.activemq:activemq-broker'
     implementation 'org.elasticsearch:elasticsearch:6.5.4'
     implementation 'org.elasticsearch.client:elasticsearch-rest-client:6.5.4'

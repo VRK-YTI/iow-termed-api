@@ -38,6 +38,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Group;
 import static fi.vm.yti.terminology.api.model.termed.NodeType.Organization;
+import static fi.vm.yti.terminology.api.migration.DomainIndex.TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
@@ -296,6 +297,8 @@ public class FrontendController {
     @GetMapping(path = "/graphs/{id}", produces = APPLICATION_JSON_VALUE)
     Graph getGraph(@Parameter(description = "Id for the graph") @PathVariable("id") UUID graphId) {
         logger.info("GET /graphs/{id} requested with graphId: " + graphId.toString());
+        // One graph, so return always root.
+        
         return termedService.getGraph(graphId);
     }
 

@@ -82,6 +82,7 @@ public class FrontendElasticSearchService {
             SearchRequest query = conceptQueryFactory.createQuery(request, superUser, limit ->
                 superUser ? Collections.emptySet() : terminologiesMatchingOrganizations(readOrganizations(), limit)
             );
+            logger.info("ElasticSearchService.searchConcept():"+ query);
             SearchResponse response = esRestClient.search(query, RequestOptions.DEFAULT);
             return conceptQueryFactory.parseResponse(response, request);
         } catch (IOException e) {
@@ -100,6 +101,7 @@ public class FrontendElasticSearchService {
             try {
                 Set<String> incompleteFromTerminologies = superUser ? Collections.emptySet() : terminologiesMatchingOrganizations(privilegedOrganizations, null);
                 SearchRequest query = deepConceptQueryFactory.createQuery(request.getQuery(), request.getPrefLang(), superUser, incompleteFromTerminologies);
+                logger.info("ElasticSearchService.searchTerminology():"+ query);
                 SearchResponse response = esRestClient.search(query, RequestOptions.DEFAULT);
                 deepSearchHits = deepConceptQueryFactory.parseResponse(response, request);
             } catch (IOException e) {
@@ -116,6 +118,7 @@ public class FrontendElasticSearchService {
             } else {
                 finalQuery = terminologyQueryFactory.createQuery(request, superUser, privilegedOrganizations);
             }
+            logger.info("ElasticSearchService.searchTerminology() final query:"+ finalQuery);
             SearchResponse response = esRestClient.search(finalQuery, RequestOptions.DEFAULT);
             return terminologyQueryFactory.parseResponse(response, request, deepSearchHits);
         } catch (IOException e) {

@@ -177,20 +177,23 @@ public class FrontendTermedService {
     void createVocabulary(UUID templateGraphId, String prefix, GenericNode vocabularyNode, UUID graphId, boolean sync) {
 
         check(authorizationManager.canCreateVocabulary(vocabularyNode));
-
+        String uri = vocabularyNode.getUri();
+        if (uri != null && !uri.isEmpty() && uri.contains("terminological-vocabulary")) {
+            // Remove last part of the uri
+            uri = uri.substring(0, uri.lastIndexOf("/"));
+            vocabularyNode.setUri(uri);
+        } else {
+            logger.error("Missing incoming URI");
+            vocabularyNode.setUri("http://uri.suomi.fi/terminology/"+prefix);
+        }
+ 
         List<MetaNode> templateMetaNodes = getTypes(templateGraphId);
         List<Property> prefLabel = mapToList(vocabularyNode.getProperties().get("prefLabel"), Attribute::asProperty);
 
-        logger.debug("Creating graph for \"" + prefix + "\"");
-        createGraph(prefix, prefLabel, graphId);
-        logger.debug("Graph created for \"" + prefix + "\"");
-        List<MetaNode> graphMetaNodes = mapToList(templateMetaNodes, node -> node.copyToGraph(graphId));
-
-        logger.debug("Updating types for \"" + prefix + "\"");
-        updateTypes(graphId, graphMetaNodes);
-        logger.debug("Handling nodes for \"" + prefix + "\"");
+        logger.debug("Handling nodes for \"" + prefix + "\"");       
+        JsonUtils.prettyPrintJson(vocabularyNode);
         updateAndDeleteInternalNodes(
-                new GenericDeleteAndSave(emptyList(), singletonList(vocabularyNode.copyToGraph(graphId))), sync, null);
+                new GenericDeleteAndSave(emptyList(), singletonList(vocabularyNode.copyToGraph(templateGraphId))), sync, null);
         logger.debug("Finished for \"" + prefix + "\"");
     }
 
@@ -205,34 +208,7 @@ public class FrontendTermedService {
 
     @NotNull
     GenericNodeInlined getConcept(UUID graphId, UUID conceptId) {
-
-        Parameters params = new Parameters();
-        params.add("select", "id");
-        params.add("select", "type");
-        params.add("select", "code");
-        params.add("select", "uri");
-        params.add("select", "createdBy");
-        params.add("select", "createdDate");
-        params.add("select", "lastModifiedBy");
-        params.add("select", "lastModifiedDate");
-        params.add("select", "properties.*");
-        params.add("select", "references.*");
-        params.add("select", "references.prefLabelXl:2");
-        params.add("select", "referrers.*");
-        params.add("select", "referrers.prefLabelXl:2");
-        params.add("where", "graph.id:" + graphId);
-        params.add("where", "id:" + conceptId);
-        params.add("max", "-1");
-
-        List<GenericNodeInlined> result = requireNonNull(termedRequester.exchange("/node-trees", GET, params,
-                new ParameterizedTypeReference<List<GenericNodeInlined>>() {
-                }));
-
-        if (result.size() == 0) {
-            throw new NodeNotFoundException(graphId, conceptId);
-        } else {
-            return userNameToDisplayName(result.get(0), new UserIdToDisplayNameMapper());
-        }
+        return getConcept(conceptId);
     }
 
     @NotNull
@@ -270,31 +246,8 @@ public class FrontendTermedService {
     @NotNull
     GenericNodeInlined getCollection(UUID graphId, UUID collectionId) {
 
-        Parameters params = new Parameters();
-        params.add("select", "id");
-        params.add("select", "type");
-        params.add("select", "code");
-        params.add("select", "uri");
-        params.add("select", "createdBy");
-        params.add("select", "createdDate");
-        params.add("select", "lastModifiedBy");
-        params.add("select", "lastModifiedDate");
-        params.add("select", "properties.*");
-        params.add("select", "references.*");
-        params.add("select", "references.prefLabelXl:2");
-        params.add("where", "graph.id:" + graphId);
-        params.add("where", "id:" + collectionId);
-        params.add("max", "-1");
-
-        List<GenericNodeInlined> result = requireNonNull(termedRequester.exchange("/node-trees", GET, params,
-                new ParameterizedTypeReference<List<GenericNodeInlined>>() {
-                }));
-
-        if (result.size() == 0) {
-            throw new NodeNotFoundException(graphId, collectionId);
-        } else {
-            return userNameToDisplayName(result.get(0), new UserIdToDisplayNameMapper());
-        }
+        // 1 graph change, don't use graphId
+        return getCollection(collectionId);
     }
 
     @NotNull
@@ -328,8 +281,9 @@ public class FrontendTermedService {
     }
 
     @NotNull
-    JsonNode getCollectionList(UUID graphId) {
+    JsonNode getCollectionList(UUID terminologyId) {
 
+        // 
         Parameters params = new Parameters();
         params.add("select", "id");
         params.add("select", "type");
@@ -338,8 +292,9 @@ public class FrontendTermedService {
         params.add("select", "properties.prefLabel");
         params.add("select", "properties.status");
         params.add("select", "lastModifiedDate");
-        params.add("where", "graph.id:" + graphId);
+        params.add("where", "graph.id:" + TERMINOLOGICAL_VOCABULARY_TEMPLATE_GRAPH_ID);
         params.add("where", "type.id:" + "Collection");
+        params.add("where", "references.definedInScheme.id:" + terminologyId);
         params.add("max", "-1");
 
         return requireNonNull(termedRequester.exchange("/node-trees", GET, params, JsonNode.class));
@@ -388,13 +343,8 @@ public class FrontendTermedService {
     public @NotNull GenericNode getConceptNode(UUID graphId, UUID conceptId) {
         Parameters params = new Parameters();
         params.add("max", "-1");
-        String path = graphId != null ? "/graphs/" + graphId + "/types/Concept/nodes/" + conceptId : null;
-
-        if (path == null)
-            return null;
-        return requireNonNull(
-                termedRequester.exchange(path, GET, params, new ParameterizedTypeReference<GenericNode>() {
-                }));
+        // One graph
+        return getConceptNode(conceptId);
     }
 
     public @NotNull GenericNode getConceptNode(UUID conceptId) {

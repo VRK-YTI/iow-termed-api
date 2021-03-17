@@ -19,6 +19,9 @@ repositories {
     mavenLocal()
     mavenCentral()
     jcenter()
+    maven {
+        url "$artifactoryUrl"
+    }
 
     // put your artifactory parameters to $HOME/.gradle/gradle.properties
     if (project.hasProperty('artifactoryUrl')) {
